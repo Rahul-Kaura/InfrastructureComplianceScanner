@@ -134,6 +134,7 @@ export function evaluateRule(service: ServiceConfig, rule: ComplianceRule): Viol
   return out;
 }
 
+/** Full inventory pass: every service against every rule (selector filters inside evaluateRule). */
 export function scan(
   infra: InfrastructureSnapshot,
   policies: PolicyBundle,
