@@ -1,6 +1,7 @@
 {
   "name": "infrastructure-compliance-scanner",
   "version": "0.1.0",
+  "description": "Policy checks against a normalized infra snapshot (web, API, CLI).",
   "private": true,
   "scripts": {
     "dev": "node node_modules/next/dist/bin/next dev --turbopack",
