@@ -177,6 +177,30 @@ const DEFAULT_POLICIES = `{
       "severity": "high",
       "appliesTo": { "type": "storage" },
       "assert": [{ "field": "encryptionAtRest", "op": "eq", "value": true, "expect": "encryptionAtRest === true" }]
+    },
+    {
+      "id": "db-cost-center-tag",
+      "name": "Database cost-center tag",
+      "description": "Every database must carry an approved cost-center tag for chargeback.",
+      "severity": "medium",
+      "appliesTo": { "type": "database" },
+      "assert": [{ "field": "tags.cost-center", "op": "in", "value": ["cc-42", "cc-01", "cc-77", "cc-data", "cc-eng"], "expect": "tags.cost-center in finance-approved list" }]
+    },
+    {
+      "id": "compute-team-tag",
+      "name": "Compute team ownership",
+      "description": "Compute instances must declare a team tag for ownership.",
+      "severity": "medium",
+      "appliesTo": { "type": "compute" },
+      "assert": [{ "field": "tags.team", "op": "in", "value": ["payments", "platform", "analytics", "data", "engineering"], "expect": "tags.team in approved list" }]
+    },
+    {
+      "id": "staging-db-replica-min",
+      "name": "Staging database redundancy",
+      "description": "Staging databases should have at least two replicas for pre-prod realism.",
+      "severity": "low",
+      "appliesTo": { "type": "database", "environment": "staging" },
+      "assert": [{ "field": "replicaCount", "op": "gte", "value": 2, "expect": "replicaCount >= 2" }]
     }
   ]
 }`;
