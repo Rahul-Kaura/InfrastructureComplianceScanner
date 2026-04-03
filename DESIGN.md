@@ -133,6 +133,22 @@ Stateless evaluator containers pulling work from SQS, Google Pub/Sub, or Kafka d
 
 In practice, cloud API rate limits, organizational complexity (thousands of accounts), and data freshness SLAs dominate. The policy engine is rarely the first bottleneck if collection is honest about pagination and retries.
 
+### Scaling the scanner service itself (Docker → Kubernetes → Helm)
+
+The policy engine can scale in-process or across workers (previous subsections). The **web/API surface** also needs a clear packaging and deployment story—that is where Docker, Kubernetes, and Helm matter.
+
+**Docker** packages the Node/Next application with a pinned runtime so every environment runs the same bits. For scale, you push images to a registry (ECR, GCR, ACR), use immutable tags per release, and optionally multi-arch builds (amd64/arm64) so the same pipeline serves laptops and Graviton clusters. CI builds the image once; dev, staging, and prod **promote the same artifact**, which reduces “works in CI, breaks in prod” drift.
+
+**Docker Compose** (in this repo) is for **local or single-host** runs: one command to build and expose port 3000. It is not the multi-tenant or HA topology; it is a convenience layer on top of the same image Docker would use in Kubernetes.
+
+**Kubernetes** runs that image as a **Deployment**: multiple replicas for availability, **readiness probes** so traffic only hits healthy pods, **Services** for stable networking, and later **HorizontalPodAutoscaler** on CPU, memory, or custom metrics (e.g. request latency or queue depth if the API enqueues work). For very large POST bodies (big snapshots), you might front the API with an ingress that supports longer timeouts or move bulk upload to object storage and pass references—K8s is still the place those pods scale out.
+
+**Helm** parameterizes the same chart for **dev/staging/prod** (image tag, replica count, resource requests/limits, ingress hostnames) without forking YAML. At scale, you add **per-environment values files**, optional **Secrets** integration for tokens, and release versioning (`helm upgrade`) so rollbacks match the same discipline as application semver.
+
+**Terraform** appears in two different roles. Inside the **product demo**, the sample under `examples/terraform/` is **documentation**: it shows how a real managed database maps to snapshot fields the rules read (backups, encryption, public access). It does **not** execute when you run the scanner. In a **full platform picture**, Terraform (or another IaC tool) is how you **provision** the cluster, registry, IAM, and DNS that host the scanner; separately, **Terraform plan output** can become an **input snapshot** for shift-left compliance (same rules as against live inventory, with a plan-to-snapshot adapter). Scaling that path means running plan scans in CI at PR volume and caching plan artifacts.
+
+**Future scale with this stack:** split **API pods** (thin, stateless) from **worker pods** (heavy evaluation) both built from the same or slimmed images; use a queue between them; autoscale workers on backlog; use Terraform/CDK/Pulumi to codify the entire scanning platform (VPC, EKS/GKE/AKS, IRSA/workload identity, secrets). None of that changes the rule JSON model—it changes how many containers run and how traffic flows.
+
 ---
 
 ## 6. Trade-offs and limitations of this approach (in depth)
@@ -157,7 +173,7 @@ IAM simulation, secrets detection in repos, deep network path analysis (VPC rout
 
 ## 7. Technology choices, rationale, and alternatives not chosen
 
-This section is where infrastructure and systems thinking shows up: each choice has a reason, and each reason implies something we gave up.
+This section is where infrastructure and systems thinking shows up: each choice has a reason, and each reason implies something we gave up. For **Docker, Kubernetes, Helm, and Terraform**, the **role in the product** is spelled out first so it is clear what is runtime packaging versus what is example/documentation versus what is optional platform IaC.
 
 ### TypeScript and Node.js
 
@@ -183,23 +199,46 @@ Alternatives: CSS modules, styled-components, or a component library (MUI/Chakra
 
 ### Docker
 
-Why: reproducible builds and runs across laptops and CI; the same image can be promoted toward Kubernetes.
+**Role in the product:** The Dockerfile defines the **shippable unit** for the compliance UI and API: OS + Node + built Next app. That image is what CI builds, what `docker compose` runs locally, and what Kubernetes pulls from a registry in production. The rule engine does not depend on Docker at compile time; Docker is how operators **run** the service reliably.
 
-Alternatives: Nix, Bazel, or “documented Node version only.” Docker is the lowest-friction common denominator for reviewers cloning the repo.
+**Why Docker:** Same artifact everywhere, easy onboarding (“build and run”), integrates with every major CI and registry, and avoids “install Node 20 on the server” runbooks.
 
-### Kubernetes and Helm
+**Alternatives not chosen:** **Nix** or **Bazel** for hermetic builds—stronger reproducibility, steeper learning curve for a small app. **Bare metal + systemd** with global Node—fast for one server, painful for version skew across teams. Docker is the pragmatic default for a portable web service.
 
-Why: production patterns—replicas, readiness probes, Services—match how many teams run internal tools. Helm parameterizes image tags, replica counts, and resources per environment.
+### Docker Compose
 
-Alternatives: Nomad or ECS/Fargate (valid; fewer moving parts if the org is not on Kubernetes), plain Docker Compose forever (works until you need rolling deploys and HA). Raw YAML in `k8s/` is included for teams that do not use Helm.
+**Role in the product:** **Local and demo orchestration** only: build the image, map port 3000, set `NODE_ENV`. It is not how you get HA or multi-region; it sits beside Docker as a developer convenience.
 
-Decision: K8s + Helm signal familiarity with how compliance or platform services are often deployed internally, without requiring this repo to depend on a specific cloud.
+**Why include it:** One command for reviewers and interviewers; mirrors “production container, laptop wiring.”
+
+**Alternatives:** **Podman Compose**, **dev containers**, or “run `npm start` only”—all valid; Compose is the most widely recognized pairing with Docker.
+
+### Kubernetes
+
+**Role in the product:** The manifests under `k8s/` describe how to run the **scanner deployment** as a first-class workload: **Deployment** (desired replicas), **Pod** template, **readinessProbe** (HTTP on `/`), **Service** (ClusterIP or behind Ingress), **resource requests/limits**. The compliance *logic* still lives in the app; Kubernetes answers **where it runs, how many copies, and how we know a pod is healthy**.
+
+**Why Kubernetes:** Internal platform and security tools are commonly on shared clusters; you inherit RBAC, namespaces per env, secrets management, and autoscaling patterns. If the company already operates EKS/GKE/AKS, deploying this scanner matches existing playbooks.
+
+**Alternatives not chosen:** **Amazon ECS/Fargate** or **Google Cloud Run**—less cluster operations, great for HTTP services; choose if the org is serverless-first. **HashiCorp Nomad**—simpler scheduler, smaller ecosystem than K8s. **Single VM + Docker**—fine until you need rolling updates without downtime or autoscale.
+
+### Helm
+
+**Role in the product:** **Templated packaging** for the same Kubernetes objects: image repository/tag, replica count, service port, CPU/memory. Lets platform teams install with `helm install` and promote values per environment without editing raw YAML by hand each time.
+
+**Why Helm:** Standard way to version **releases** of a chart, override values (`values-staging.yaml`), and integrate with GitOps (Argo CD, Flux).
+
+**Alternatives:** **Kustomize** (overlay-based, no templating language), **plain YAML** (what `k8s/` already provides), **cdk8s** (define manifests in TypeScript). Helm is included as the most common “package manager for K8s” pattern.
 
 ### Terraform (example under `examples/terraform`)
 
-Why: shows how real RDS-style resources map to fields the rules care about; demonstrates IaC literacy.
+**Role in the product (two layers):**
 
-Alternatives: Pulumi, CloudFormation-only samples. Terraform is widely recognized; the example is documentation, not a runtime dependency of the scanner.
+1. **In-repo example:** Illustrates **target infrastructure** that compliance rules talk about (e.g. RDS backup retention, encryption, `publicly_accessible`). It helps readers connect “Terraform resource attributes” to “fields in the JSON snapshot.” Nothing in the scanner binary calls Terraform.
+2. **In a full rollout:** Terraform (or Pulumi/CDK) is typically how you **provision** the cluster, IAM, registry, and DNS that host the scanner; and **Terraform plan JSON** can feed a **plan-time** compliance pipeline (adapter → snapshot → same engine).
+
+**Why Terraform for the example:** Broad familiarity, large provider ecosystem, easy to map HCL attributes to the demo rule fields.
+
+**Alternatives not chosen:** **Pulumi** (same ideas, general-purpose languages), **AWS CloudFormation-only** (AWS-specific), **Kubernetes YAML only** (does not model RDS). The example is pedagogical; the product stays cloud-agnostic at the engine layer.
 
 ### JSON for policies and snapshots
 
@@ -218,7 +257,7 @@ Why: see section 1. Alternatives: YAML (similar trade-offs), Rego bundles (more 
 
 ## 9. Forward-looking questions and product evolution
 
-These are the kinds of updates I would prioritize next; they read as interview-ready “what would you do with more time.”
+
 
 1. How do we evaluate Terraform plans in pull requests before apply, using the same rules as post-deploy reconciliation, without double-counting resources that exist only in plan?
 2. How should exception workflows work (time-bound waivers, approvers, audit trail) without weakening the default deny posture for critical rules?
@@ -230,6 +269,8 @@ These are the kinds of updates I would prioritize next; they read as interview-r
 8. How do we integrate with AWS Security Hub, Azure Policy insights, or GCP SCC so we do not duplicate findings that already exist natively?
 9. Can we generate remediation hints or auto-tickets with direct links to the correct Terraform module or runbook section per rule id?
 10. How would we fuzz or property-test the evaluator (random valid snapshots, invariant: no crash, deterministic output for fixed inputs)?
+11. How do we size and autoscale evaluator worker pools independently from API pods (custom metrics, KEDA on queue depth, cost caps per environment)?
+12. Should the Docker image be split into a **slim worker** image (no UI) for batch scans and a **full** image for the console, to shrink attack surface and cold-start time at scale?
 
 ---
 
