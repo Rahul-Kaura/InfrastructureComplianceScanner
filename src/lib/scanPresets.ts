@@ -10,7 +10,7 @@ export interface ScanPreset {
   label: string;
   /** One-line hint shown in title attribute */
   hint: string;
-  outcome: "violations" | "clean";
+  outcome: "violations" | "clean" | "mixed";
   policies: string;
 }
 
@@ -53,6 +53,22 @@ const VIOLATION_PRESETS: ScanPreset[] = [
     outcome: "violations",
     policies:
       "- Dev/staging environments must use cost-optimized instance types",
+  },
+];
+
+/** Five failing bullets plus one that passes on every production DB (replica ≥ 0). */
+const MIXED_PRESETS: ScanPreset[] = [
+  {
+    id: "mix-five-plus-pass",
+    label: "5 fail + 1 pass",
+    hint: "Same five violation rules plus production replica ≥ 0 (green on rds-prod-orders & rds-prod-audit)",
+    outcome: "mixed",
+    policies: `- All production databases must have automated backups enabled
+- All databases must use encryption at rest
+- Production databases cannot be publicly accessible
+- Production databases must have at least 2 replicas for high availability
+- Dev/staging environments must use cost-optimized instance types
+- Production replica >= 0`,
   },
 ];
 
@@ -138,7 +154,12 @@ const CLEAN_PRESETS: ScanPreset[] = [
   },
 ];
 
-export const SCAN_PRESETS: ScanPreset[] = [...VIOLATION_PRESETS, ...CLEAN_PRESETS];
+export const SCAN_PRESETS: ScanPreset[] = [
+  ...VIOLATION_PRESETS,
+  ...MIXED_PRESETS,
+  ...CLEAN_PRESETS,
+];
 
 export const SCAN_PRESETS_VIOLATIONS = VIOLATION_PRESETS;
+export const SCAN_PRESETS_MIXED = MIXED_PRESETS;
 export const SCAN_PRESETS_CLEAN = CLEAN_PRESETS;

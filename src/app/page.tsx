@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ScanResult, Violation } from "@/lib/engine";
-import { SCAN_PRESETS_CLEAN, SCAN_PRESETS_VIOLATIONS } from "@/lib/scanPresets";
+import type { PassedCheck, ScanResult, Violation } from "@/lib/engine";
+import { SCAN_PRESETS_CLEAN, SCAN_PRESETS_MIXED, SCAN_PRESETS_VIOLATIONS } from "@/lib/scanPresets";
 
 type ChatRole = "system" | "user" | "result";
 
@@ -11,6 +11,7 @@ interface ChatLine {
   role: ChatRole;
   text: string;
   violations?: Violation[];
+  passes?: PassedCheck[];
   passed?: boolean;
   meta?: string;
 }
@@ -34,7 +35,7 @@ export default function Home() {
     {
       id: "welcome",
       role: "system",
-      text: "Infrastructure uses the server sample inventory. Use the example scan buttons to load policies that should fail or pass, or write your own (bullets or JSON). Recognized phrases: production DB backups, encryption at rest, no public prod DBs, HA replicas, dev/staging cost-optimized instances.",
+      text: "Infrastructure uses the server sample inventory. Results show violations in red and passing (service × rule) checks in green. Try “5 fail + 1 pass” to see both. Other buttons: bullets or JSON. Phrases: production DB backups, encryption at rest, no public prod DBs, replicas (e.g. >= 0 or >= 2), dev/staging cost-optimized instances.",
     },
   ]);
   const [loading, setLoading] = useState(false);
@@ -68,13 +69,16 @@ export default function Home() {
         });
         return;
       }
+      const passCount = data.passes?.length ?? 0;
+      const violCount = data.violations.length;
       const summary = data.passed
-        ? `Clean run — ${data.serviceCount} services, ${data.ruleCount} rules, zero violations.`
-        : `Found ${data.violations.length} violation(s) across ${data.serviceCount} services (${data.ruleCount} rules).`;
+        ? `Clean run — ${data.serviceCount} services, ${data.ruleCount} rules, zero violations${passCount ? `, ${passCount} passed (service × rule) check${passCount === 1 ? "" : "s"}` : ""}.`
+        : `Found ${violCount} violation(s)${passCount ? ` and ${passCount} passed check${passCount === 1 ? "" : "s"}` : ""} across ${data.serviceCount} services (${data.ruleCount} rules).`;
       appendLine({
         role: "result",
         text: summary,
         violations: data.violations,
+        passes: data.passes,
         passed: data.passed,
         meta: data.scannedAt,
       });
@@ -126,6 +130,20 @@ export default function Home() {
                   title={p.hint}
                   onClick={() => setPolicies(p.policies)}
                   className="rounded-lg border border-rose-500/35 bg-rose-950/20 px-2.5 py-1 text-left text-[11px] text-rose-100/90 transition hover:border-rose-400/50 hover:bg-rose-950/35"
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <p className="mb-2 text-[10px] text-sky-200/80">Violations + green passes</p>
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {SCAN_PRESETS_MIXED.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  title={p.hint}
+                  onClick={() => setPolicies(p.policies)}
+                  className="rounded-lg border border-sky-500/35 bg-sky-950/20 px-2.5 py-1 text-left text-[11px] text-sky-100/90 transition hover:border-sky-400/50 hover:bg-sky-950/35"
                 >
                   {p.label}
                 </button>
@@ -186,32 +204,70 @@ export default function Home() {
                   </p>
                 ) : null}
                 {line.violations && line.violations.length > 0 ? (
-                  <ul className="mt-4 space-y-3">
-                    {line.violations.map((v, i) => (
-                      <li
-                        key={`${v.ruleId}-${v.serviceId}-${i}`}
-                        className="rounded-xl border border-rose-500/20 bg-rose-950/30 p-3 text-xs"
-                      >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-200">
-                            {v.severity}
-                          </span>
-                          <span className="font-medium text-rose-100">{v.ruleName}</span>
-                        </div>
-                        <p className="mt-1 text-slate-300">
-                          <span className="text-indigo-300">{v.serviceId}</span>
-                          {v.serviceName ? ` (${v.serviceName})` : ""}
-                        </p>
-                        <p className="mt-1 text-slate-400">{v.reason}</p>
-                        {v.field !== undefined ? (
-                          <p className="mt-1 font-[family-name:var(--font-mono)] text-[10px] text-slate-500">
-                            field: {v.field} · actual: {JSON.stringify(v.actual)} · expected:{" "}
-                            {v.expected}
+                  <>
+                    <p className="mt-4 text-[10px] font-semibold uppercase tracking-wide text-rose-200/80">
+                      Violations
+                    </p>
+                    <ul className="mt-2 space-y-3">
+                      {line.violations.map((v, i) => (
+                        <li
+                          key={`${v.ruleId}-${v.serviceId}-${i}`}
+                          className="rounded-xl border border-rose-500/20 bg-rose-950/30 p-3 text-xs"
+                        >
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-200">
+                              {v.severity}
+                            </span>
+                            <span className="font-medium text-rose-100">{v.ruleName}</span>
+                          </div>
+                          <p className="mt-1 text-slate-300">
+                            <span className="text-indigo-300">{v.serviceId}</span>
+                            {v.serviceName ? ` (${v.serviceName})` : ""}
                           </p>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
+                          <p className="mt-1 text-slate-400">{v.reason}</p>
+                          {v.field !== undefined ? (
+                            <p className="mt-1 font-[family-name:var(--font-mono)] text-[10px] text-slate-500">
+                              field: {v.field} · actual: {JSON.stringify(v.actual)} · expected:{" "}
+                              {v.expected}
+                            </p>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : null}
+                {line.passes && line.passes.length > 0 ? (
+                  <>
+                    <p className="mt-4 text-[10px] font-semibold uppercase tracking-wide text-emerald-200/80">
+                      Passed checks
+                    </p>
+                    <ul className="mt-2 space-y-2">
+                      {[...line.passes]
+                        .sort((a, b) =>
+                          `${a.ruleName}\0${a.serviceId}`.localeCompare(
+                            `${b.ruleName}\0${b.serviceId}`,
+                          ),
+                        )
+                        .map((p) => (
+                          <li
+                            key={`${p.ruleId}-${p.serviceId}`}
+                            className="rounded-xl border border-emerald-500/25 bg-emerald-950/25 p-3 text-xs"
+                          >
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-200">
+                                pass · {p.severity}
+                              </span>
+                              <span className="font-medium text-emerald-100">{p.ruleName}</span>
+                            </div>
+                            <p className="mt-1 text-slate-300">
+                              <span className="text-indigo-300">{p.serviceId}</span>
+                              {p.serviceName ? ` (${p.serviceName})` : ""}
+                            </p>
+                            <p className="mt-1 text-slate-500">All assertions passed for this service.</p>
+                          </li>
+                        ))}
+                    </ul>
+                  </>
                 ) : null}
                 {line.passed === true ? (
                   <p className="mt-3 text-xs font-medium text-emerald-400/90">All checks passed.</p>

@@ -79,10 +79,21 @@ export interface Violation {
   expected?: string;
 }
 
+/** Rule applied to this service and every assertion succeeded. */
+export interface PassedCheck {
+  ruleId: string;
+  ruleName: string;
+  severity: ComplianceRule["severity"];
+  serviceId: string;
+  serviceName?: string;
+}
+
 export interface ScanResult {
   scannedAt: string;
   serviceCount: number;
   ruleCount: number;
   violations: Violation[];
+  /** One entry per (service, rule) where the rule applied and produced zero violations. */
+  passes: PassedCheck[];
   passed: boolean;
 }

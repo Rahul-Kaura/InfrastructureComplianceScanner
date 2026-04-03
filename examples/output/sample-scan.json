@@ -1,5 +1,5 @@
 {
-  "scannedAt": "2026-04-03T05:04:13.557Z",
+  "scannedAt": "2026-04-03T23:10:43.557Z",
   "serviceCount": 5,
   "ruleCount": 5,
   "violations": [
@@ -52,6 +52,54 @@
       "field": "instanceType",
       "actual": "db.r5.large",
       "expected": "instance type matches t3/t4g/t3a/m6g/r6g/db.t* pattern"
+    }
+  ],
+  "passes": [
+    {
+      "ruleId": "prod-db-backups",
+      "ruleName": "Production DB backups",
+      "severity": "critical",
+      "serviceId": "rds-prod-orders",
+      "serviceName": "orders-primary"
+    },
+    {
+      "ruleId": "db-encryption",
+      "ruleName": "Encryption at rest",
+      "severity": "high",
+      "serviceId": "rds-prod-orders",
+      "serviceName": "orders-primary"
+    },
+    {
+      "ruleId": "prod-db-no-public",
+      "ruleName": "No public production DBs",
+      "severity": "critical",
+      "serviceId": "rds-prod-orders",
+      "serviceName": "orders-primary"
+    },
+    {
+      "ruleId": "prod-db-ha",
+      "ruleName": "Production HA replicas",
+      "severity": "high",
+      "serviceId": "rds-prod-orders",
+      "serviceName": "orders-primary"
+    },
+    {
+      "ruleId": "db-encryption",
+      "ruleName": "Encryption at rest",
+      "severity": "high",
+      "serviceId": "rds-prod-audit"
+    },
+    {
+      "ruleId": "dev-cost-instance",
+      "ruleName": "Dev/staging cost-optimized DB classes",
+      "severity": "medium",
+      "serviceId": "rds-staging-analytics"
+    },
+    {
+      "ruleId": "db-encryption",
+      "ruleName": "Encryption at rest",
+      "severity": "high",
+      "serviceId": "rds-dev-sandbox"
     }
   ],
   "passed": false

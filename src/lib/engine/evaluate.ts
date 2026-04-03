@@ -2,6 +2,7 @@ import type {
   Assertion,
   ComplianceRule,
   InfrastructureSnapshot,
+  PassedCheck,
   PolicyBundle,
   RuleSelector,
   ScanResult,
@@ -141,9 +142,22 @@ export function scan(
   scannedAt = new Date().toISOString(),
 ): ScanResult {
   const violations: Violation[] = [];
+  const passes: PassedCheck[] = [];
   for (const service of infra.services) {
     for (const rule of policies.rules) {
-      violations.push(...evaluateRule(service, rule));
+      if (!matchesSelector(service, rule.appliesTo)) continue;
+      const vs = evaluateRule(service, rule);
+      if (vs.length > 0) {
+        violations.push(...vs);
+      } else {
+        passes.push({
+          ruleId: rule.id,
+          ruleName: rule.name,
+          severity: rule.severity,
+          serviceId: service.id,
+          serviceName: service.name,
+        });
+      }
     }
   }
   return {
@@ -151,6 +165,7 @@ export function scan(
     serviceCount: infra.services.length,
     ruleCount: policies.rules.length,
     violations,
+    passes,
     passed: violations.length === 0,
   };
 }
