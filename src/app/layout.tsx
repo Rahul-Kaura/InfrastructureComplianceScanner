@@ -13,8 +13,8 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Compliance Scanner",
-  description: "Infrastructure policy checks against declared service state",
+  title: "Compliance scanner",
+  description: "Infra snapshot vs policy rules",
 };
 
 export default function RootLayout({
