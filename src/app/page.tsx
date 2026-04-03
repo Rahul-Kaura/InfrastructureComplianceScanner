@@ -185,9 +185,6 @@ export default function Home() {
         <h1 className="mt-2 bg-gradient-to-r from-slate-100 via-indigo-100 to-slate-300 bg-clip-text text-3xl font-semibold text-transparent md:text-4xl">
           Compliance Scanner
         </h1>
-        <p className="mx-auto mt-3 max-w-xl text-sm text-slate-400">
-          Declarative rules over a JSON snapshot of services—same engine powers the API and CLI.
-        </p>
       </header>
 
       <div className="relative z-10 grid flex-1 gap-6 lg:grid-cols-2">
@@ -280,8 +277,8 @@ export default function Home() {
       </div>
 
       <footer className="relative z-10 mt-10 text-center text-xs text-slate-600">
-        CLI: <code className="font-[family-name:var(--font-mono)] text-slate-500">npm run scan</code>{" "}
-        · samples in <code className="font-[family-name:var(--font-mono)]">examples/</code>
+        Sample inputs and example output live under{" "}
+        <code className="font-[family-name:var(--font-mono)] text-slate-500">examples/</code>
       </footer>
     </main>
   );
