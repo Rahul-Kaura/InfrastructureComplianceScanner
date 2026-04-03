@@ -2,6 +2,8 @@
 
 ## Purpose
 
+Live site Deployment:https://infrastructurecompliancescannermain.onrender.com/
+
 This system verifies that infrastructure, represented as a normalized inventory, meets security, cost, and operational policies.
 
 A collector layer gathers data from cloud APIs, infrastructure-as-code (IaC), or Kubernetes and converts it into a standardized snapshot. A policy engine then evaluates rules against that snapshot and produces violations. These violations can be surfaced in a UI, used to fail CI/CD pipelines, or trigger ticketing workflows.
