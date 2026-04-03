@@ -11,7 +11,9 @@ import { parseInfrastructureJson, parsePolicyJson, scan } from "../src/lib/engin
 function main() {
   const [, , infraPath, policyPath] = process.argv;
   if (!infraPath || !policyPath) {
-    console.error("Usage: scan-cli <infrastructure.json> <policies.json>");
+    console.error(
+      "Usage: scan-cli <infrastructure.json> <policies.json>\n  Exit 0 if clean, 2 if violations, 1 on errors.",
+    );
     process.exit(1);
   }
   const infraText = readFileSync(resolve(process.cwd(), infraPath), "utf8");
