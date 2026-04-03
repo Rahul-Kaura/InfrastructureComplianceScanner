@@ -17,3 +17,10 @@ Technologies:
 - Terraform (example module under examples/terraform, illustrative only)
 - JSON (snapshot and policy file formats)
 - Render (`render.yaml` blueprint for a hosted web service so you are not tied to localhost)
+
+Screenshots:
+
+![UI empty state](assets/ui-empty.png)
+
+![UI with violations](assets/ui-violations.png)
+
