@@ -1,22 +1,26 @@
 import { NextResponse } from "next/server";
-import { parseInfrastructureJson, parsePolicyJson, scan } from "@/lib/engine";
+import { parseInfrastructureJson, parsePoliciesInput, scan } from "@/lib/engine";
+import { getDefaultInfrastructureJson } from "@/lib/defaultInfrastructure";
 
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as { infrastructure?: string; policies?: string };
-    const infraText = body.infrastructure;
     const policyText = body.policies;
-    if (typeof infraText !== "string" || typeof policyText !== "string") {
+    if (typeof policyText !== "string") {
       return NextResponse.json(
         {
           error:
-            "Request body must be JSON with two string fields: infrastructure and policies (each containing JSON text).",
+            "Request body must be JSON with a string field policies (bullet-list policies or JSON starting with '{'). Optional infrastructure overrides the server default snapshot.",
         },
         { status: 400 },
       );
     }
+    const infraText =
+      typeof body.infrastructure === "string" && body.infrastructure.trim() !== ""
+        ? body.infrastructure
+        : getDefaultInfrastructureJson();
     const infra = parseInfrastructureJson(infraText);
-    const policies = parsePolicyJson(policyText);
+    const policies = parsePoliciesInput(policyText);
     const result = scan(infra, policies);
     return NextResponse.json(result);
   } catch (e) {

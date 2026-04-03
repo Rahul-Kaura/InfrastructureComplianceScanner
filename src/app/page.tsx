@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ScanResult, Violation } from "@/lib/engine";
+import { SCAN_PRESETS_CLEAN, SCAN_PRESETS_VIOLATIONS } from "@/lib/scanPresets";
 
 type ChatRole = "system" | "user" | "result";
 
@@ -14,98 +15,12 @@ interface ChatLine {
   meta?: string;
 }
 
-const DEFAULT_INFRA = `{
-  "version": "1",
-  "services": [
-    {
-      "id": "rds-prod-orders",
-      "name": "orders-primary",
-      "type": "database",
-      "environment": "production",
-      "automatedBackups": true,
-      "encryptionAtRest": true,
-      "publiclyAccessible": false,
-      "replicaCount": 2,
-      "instanceType": "db.r5.xlarge"
-    },
-    {
-      "id": "rds-prod-audit",
-      "type": "database",
-      "environment": "production",
-      "automatedBackups": false,
-      "encryptionAtRest": true,
-      "publiclyAccessible": true,
-      "replicaCount": 0,
-      "instanceType": "db.m5.2xlarge"
-    },
-    {
-      "id": "rds-dev-sandbox",
-      "type": "database",
-      "environment": "development",
-      "automatedBackups": true,
-      "encryptionAtRest": true,
-      "publiclyAccessible": false,
-      "replicaCount": 0,
-      "instanceType": "db.r5.large"
-    }
-  ]
-}`;
-
-const DEFAULT_POLICIES = `{
-  "version": "1",
-  "rules": [
-    {
-      "id": "prod-db-backups",
-      "name": "Production DB backups",
-      "description": "Production databases must have automated backups on.",
-      "severity": "critical",
-      "appliesTo": { "type": "database", "environment": "production" },
-      "assert": [
-        { "field": "automatedBackups", "op": "eq", "value": true, "expect": "true" }
-      ]
-    },
-    {
-      "id": "db-encryption",
-      "name": "Encryption at rest",
-      "description": "All databases must use encryption at rest.",
-      "severity": "high",
-      "appliesTo": { "type": "database" },
-      "assert": [
-        { "field": "encryptionAtRest", "op": "eq", "value": true, "expect": "true" }
-      ]
-    },
-    {
-      "id": "prod-db-no-public",
-      "name": "No public production DBs",
-      "description": "Production databases cannot be publicly accessible.",
-      "severity": "critical",
-      "appliesTo": { "type": "database", "environment": "production" },
-      "assert": [
-        { "field": "publiclyAccessible", "op": "eq", "value": false, "expect": "false" }
-      ]
-    },
-    {
-      "id": "prod-db-ha",
-      "name": "Production HA replicas",
-      "description": "Production databases need at least 2 replicas.",
-      "severity": "high",
-      "appliesTo": { "type": "database", "environment": "production" },
-      "assert": [
-        { "field": "replicaCount", "op": "gte", "value": 2, "expect": ">= 2" }
-      ]
-    },
-    {
-      "id": "dev-cost-instance",
-      "name": "Dev cost-optimized instances",
-      "description": "Non-prod DBs should use smaller / burstable classes.",
-      "severity": "medium",
-      "appliesTo": { "type": "database", "environment": ["development", "staging"] },
-      "assert": [
-        { "field": "instanceType", "op": "matches", "value": "costOptimizedInstance" }
-      ]
-    }
-  ]
-}`;
+const DEFAULT_POLICIES = `Example policies:
+- All production databases must have automated backups enabled
+- All databases must use encryption at rest
+- Production databases cannot be publicly accessible
+- Production databases must have at least 2 replicas for high availability
+- Dev/staging environments must use cost-optimized instance types`;
 
 function MoonOrb() {
   return (
@@ -114,13 +29,12 @@ function MoonOrb() {
 }
 
 export default function Home() {
-  const [infra, setInfra] = useState(DEFAULT_INFRA);
   const [policies, setPolicies] = useState(DEFAULT_POLICIES);
   const [lines, setLines] = useState<ChatLine[]>([
     {
       id: "welcome",
       role: "system",
-      text: "Edit the snapshot and policies JSON, then run a scan. Each violation ties a service to the rule that failed.",
+      text: "Infrastructure uses the server sample inventory. Use the example scan buttons to load policies that should fail or pass, or write your own (bullets or JSON). Recognized phrases: production DB backups, encryption at rest, no public prod DBs, HA replicas, dev/staging cost-optimized instances.",
     },
   ]);
   const [loading, setLoading] = useState(false);
@@ -138,13 +52,13 @@ export default function Home() {
     setLoading(true);
     appendLine({
       role: "user",
-      text: "Run compliance scan on current snapshot + policies.",
+      text: "Run compliance scan with current policies (server snapshot).",
     });
     try {
       const res = await fetch("/api/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ infrastructure: infra, policies }),
+        body: JSON.stringify({ policies }),
       });
       const data = (await res.json()) as ScanResult & { error?: string };
       if (!res.ok) {
@@ -172,7 +86,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [appendLine, infra, policies]);
+  }, [appendLine, policies]);
 
   return (
     <main className="relative mx-auto flex min-h-screen max-w-6xl flex-col px-4 pb-16 pt-10 md:px-8">
@@ -189,21 +103,55 @@ export default function Home() {
 
       <div className="relative z-10 grid flex-1 gap-6 lg:grid-cols-2">
         <section className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-slate-950/40 p-5 shadow-xl backdrop-blur-md">
-          <h2 className="text-sm font-medium text-indigo-200/90">Snapshot (JSON)</h2>
+          <p className="text-xs leading-relaxed text-slate-500">
+            Snapshot is not editable here — the API uses{" "}
+            <code className="font-[family-name:var(--font-mono)] text-slate-400">
+              examples/infrastructure/sample.json
+            </code>{" "}
+            unless you call the API with an optional{" "}
+            <code className="font-[family-name:var(--font-mono)] text-slate-400">infrastructure</code>{" "}
+            string.
+          </p>
+          <h2 className="text-sm font-medium text-indigo-200/90">Policies</h2>
+          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+            <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+              Example scans (same sample inventory)
+            </p>
+            <p className="mb-2 text-[10px] text-rose-200/70">Should report violations</p>
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {SCAN_PRESETS_VIOLATIONS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  title={p.hint}
+                  onClick={() => setPolicies(p.policies)}
+                  className="rounded-lg border border-rose-500/35 bg-rose-950/20 px-2.5 py-1 text-left text-[11px] text-rose-100/90 transition hover:border-rose-400/50 hover:bg-rose-950/35"
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <p className="mb-2 text-[10px] text-emerald-200/70">Should pass (clean run)</p>
+            <div className="flex flex-wrap gap-1.5">
+              {SCAN_PRESETS_CLEAN.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  title={p.hint}
+                  onClick={() => setPolicies(p.policies)}
+                  className="rounded-lg border border-emerald-500/35 bg-emerald-950/20 px-2.5 py-1 text-left text-[11px] text-emerald-100/90 transition hover:border-emerald-400/50 hover:bg-emerald-950/35"
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <textarea
-            className="min-h-[220px] flex-1 resize-y rounded-xl border border-white/10 bg-black/30 p-3 font-[family-name:var(--font-mono)] text-xs leading-relaxed text-slate-200 outline-none ring-indigo-500/30 focus:border-indigo-400/50 focus:ring-2"
-            spellCheck={false}
-            value={infra}
-            onChange={(e) => setInfra(e.target.value)}
-            aria-label="Infrastructure JSON"
-          />
-          <h2 className="text-sm font-medium text-indigo-200/90">Policies (JSON)</h2>
-          <textarea
-            className="min-h-[220px] flex-1 resize-y rounded-xl border border-white/10 bg-black/30 p-3 font-[family-name:var(--font-mono)] text-xs leading-relaxed text-slate-200 outline-none ring-indigo-500/30 focus:border-indigo-400/50 focus:ring-2"
+            className="min-h-[min(420px,50vh)] flex-1 resize-y rounded-xl border border-white/10 bg-black/30 p-3 text-sm leading-relaxed text-slate-200 outline-none ring-indigo-500/30 focus:border-indigo-400/50 focus:ring-2"
             spellCheck={false}
             value={policies}
             onChange={(e) => setPolicies(e.target.value)}
-            aria-label="Policies JSON"
+            aria-label="Policies as bullet list or JSON"
           />
           <button
             type="button"
@@ -276,7 +224,10 @@ export default function Home() {
       </div>
 
       <footer className="relative z-10 mt-10 text-center text-xs text-slate-600">
-        Fixtures under <code className="font-[family-name:var(--font-mono)] text-slate-500">examples/</code>
+        Policy samples under{" "}
+        <code className="font-[family-name:var(--font-mono)] text-slate-500">examples/policies/</code>
+        ; default snapshot under{" "}
+        <code className="font-[family-name:var(--font-mono)] text-slate-500">examples/infrastructure/</code>
       </footer>
     </main>
   );

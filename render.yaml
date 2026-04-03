@@ -1,5 +1,9 @@
 # Render Blueprint: https://render.com/docs/blueprint-spec
 # Dashboard: New → Blueprint → connect this repo → Render picks up render.yaml
+#
+# Use a Web Service (this file), not a Static Site — Next.js API routes (/api/scan) need a Node server.
+# The app reads the default infrastructure snapshot from examples/infrastructure/sample.json at runtime;
+# keep that path in the deployed repo (Docker image also copies it for container deploys).
 
 services:
   - type: web
@@ -12,6 +16,8 @@ services:
     startCommand: npm run start
     healthCheckPath: /
     envVars:
+      - key: NODE_VERSION
+        value: "22"
       - key: NODE_ENV
         value: production
       - key: NEXT_TELEMETRY_DISABLED
