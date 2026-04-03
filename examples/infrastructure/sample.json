@@ -33,8 +33,7 @@
       "encryptionAtRest": false,
       "publiclyAccessible": false,
       "replicaCount": 1,
-      "instanceType": "db.t3.medium",
-      "tags": { "team": "analytics" }
+      "instanceType": "db.t3.medium"
     },
     {
       "id": "rds-dev-sandbox",
@@ -44,8 +43,7 @@
       "encryptionAtRest": true,
       "publiclyAccessible": false,
       "replicaCount": 0,
-      "instanceType": "db.r5.large",
-      "tags": { "team": "engineering" }
+      "instanceType": "db.r5.large"
     },
     {
       "id": "ec2-dev-batch",
@@ -53,28 +51,6 @@
       "environment": "development",
       "instanceType": "t3.small",
       "publiclyAccessible": false
-    },
-    {
-      "id": "ec2-prod-api",
-      "type": "compute",
-      "environment": "production",
-      "instanceType": "m5.large",
-      "publiclyAccessible": true,
-      "tags": { "team": "platform" }
-    },
-    {
-      "id": "elasticache-prod-sessions",
-      "type": "cache",
-      "environment": "production",
-      "encryptionAtRest": false,
-      "tags": { "team": "platform" }
-    },
-    {
-      "id": "s3-staging-logs",
-      "type": "storage",
-      "environment": "staging",
-      "encryptionAtRest": false,
-      "tags": { "team": "data" }
     }
   ]
 }

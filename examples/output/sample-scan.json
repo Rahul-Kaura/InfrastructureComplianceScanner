@@ -1,8 +1,7 @@
 {
-  "scannedAt": "2026-04-03T06:09:30.111Z",
-  "serviceCount": 8,
-  "ruleCount": 13,
-  "passed": false,
+  "scannedAt": "2026-04-03T05:04:13.557Z",
+  "serviceCount": 5,
+  "ruleCount": 5,
   "violations": [
     {
       "ruleId": "prod-db-backups",
@@ -35,24 +34,6 @@
       "expected": "replicaCount >= 2"
     },
     {
-      "ruleId": "db-team-tag",
-      "ruleName": "Database ownership tag",
-      "severity": "medium",
-      "serviceId": "rds-prod-audit",
-      "reason": "expected one of [\"payments\",\"platform\",\"analytics\",\"data\",\"engineering\"], got undefined",
-      "field": "tags.team",
-      "expected": "tags.team in approved list"
-    },
-    {
-      "ruleId": "db-cost-center-tag",
-      "ruleName": "Database cost-center tag",
-      "severity": "medium",
-      "serviceId": "rds-prod-audit",
-      "reason": "expected one of [\"cc-42\",\"cc-01\",\"cc-77\",\"cc-data\",\"cc-eng\"], got undefined",
-      "field": "tags.cost-center",
-      "expected": "tags.cost-center in finance-approved list"
-    },
-    {
       "ruleId": "db-encryption",
       "ruleName": "Encryption at rest",
       "severity": "high",
@@ -63,25 +44,6 @@
       "expected": "encryptionAtRest === true"
     },
     {
-      "ruleId": "db-cost-center-tag",
-      "ruleName": "Database cost-center tag",
-      "severity": "medium",
-      "serviceId": "rds-staging-analytics",
-      "reason": "expected one of [\"cc-42\",\"cc-01\",\"cc-77\",\"cc-data\",\"cc-eng\"], got undefined",
-      "field": "tags.cost-center",
-      "expected": "tags.cost-center in finance-approved list"
-    },
-    {
-      "ruleId": "staging-db-replica-min",
-      "ruleName": "Staging database redundancy",
-      "severity": "low",
-      "serviceId": "rds-staging-analytics",
-      "reason": "expected >= 2, got 1",
-      "field": "replicaCount",
-      "actual": 1,
-      "expected": "replicaCount >= 2"
-    },
-    {
       "ruleId": "dev-cost-instance",
       "ruleName": "Dev/staging cost-optimized DB classes",
       "severity": "medium",
@@ -90,54 +52,7 @@
       "field": "instanceType",
       "actual": "db.r5.large",
       "expected": "instance type matches t3/t4g/t3a/m6g/r6g/db.t* pattern"
-    },
-    {
-      "ruleId": "db-cost-center-tag",
-      "ruleName": "Database cost-center tag",
-      "severity": "medium",
-      "serviceId": "rds-dev-sandbox",
-      "reason": "expected one of [\"cc-42\",\"cc-01\",\"cc-77\",\"cc-data\",\"cc-eng\"], got undefined",
-      "field": "tags.cost-center",
-      "expected": "tags.cost-center in finance-approved list"
-    },
-    {
-      "ruleId": "compute-team-tag",
-      "ruleName": "Compute team ownership",
-      "severity": "medium",
-      "serviceId": "ec2-dev-batch",
-      "reason": "expected one of [\"payments\",\"platform\",\"analytics\",\"data\",\"engineering\"], got undefined",
-      "field": "tags.team",
-      "expected": "tags.team in approved list"
-    },
-    {
-      "ruleId": "prod-compute-no-public",
-      "ruleName": "Production compute not public",
-      "severity": "critical",
-      "serviceId": "ec2-prod-api",
-      "reason": "expected publiclyAccessible === false, got true",
-      "field": "publiclyAccessible",
-      "actual": true,
-      "expected": "publiclyAccessible === false"
-    },
-    {
-      "ruleId": "cache-encryption",
-      "ruleName": "Cache encryption at rest",
-      "severity": "high",
-      "serviceId": "elasticache-prod-sessions",
-      "reason": "expected encryptionAtRest === true, got false",
-      "field": "encryptionAtRest",
-      "actual": false,
-      "expected": "encryptionAtRest === true"
-    },
-    {
-      "ruleId": "storage-encryption",
-      "ruleName": "Object storage encryption",
-      "severity": "high",
-      "serviceId": "s3-staging-logs",
-      "reason": "expected encryptionAtRest === true, got false",
-      "field": "encryptionAtRest",
-      "actual": false,
-      "expected": "encryptionAtRest === true"
     }
-  ]
+  ],
+  "passed": false
 }

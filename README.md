@@ -14,7 +14,6 @@ Technologies:
 - Docker Compose
 - Kubernetes (example manifests)
 - Helm (example chart)
-- Terraform (example module under examples/terraform, illustrative only)
 - JSON (snapshot and policy file formats)
 - Render (`render.yaml` blueprint for a hosted web service so you are not tied to localhost)
 
@@ -24,3 +23,7 @@ Screenshots:
 
 ![UI with violations](assets/ui-violations.png)
 
+
+Future ideas (not implemented yet):
+
+- Terraform / other IaC as an input source (convert plan JSON into the same snapshot format so rules can run pre-deploy in CI)
