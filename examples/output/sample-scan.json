@@ -1,7 +1,8 @@
 {
-  "scannedAt": "2026-04-03T05:04:13.557Z",
-  "serviceCount": 5,
-  "ruleCount": 5,
+  "scannedAt": "2026-04-03T06:05:49.875Z",
+  "serviceCount": 8,
+  "ruleCount": 10,
+  "passed": false,
   "violations": [
     {
       "ruleId": "prod-db-backups",
@@ -34,6 +35,15 @@
       "expected": "replicaCount >= 2"
     },
     {
+      "ruleId": "db-team-tag",
+      "ruleName": "Database ownership tag",
+      "severity": "medium",
+      "serviceId": "rds-prod-audit",
+      "reason": "expected one of [\"payments\",\"platform\",\"analytics\",\"data\",\"engineering\"], got undefined",
+      "field": "tags.team",
+      "expected": "tags.team in approved list"
+    },
+    {
       "ruleId": "db-encryption",
       "ruleName": "Encryption at rest",
       "severity": "high",
@@ -52,7 +62,36 @@
       "field": "instanceType",
       "actual": "db.r5.large",
       "expected": "instance type matches t3/t4g/t3a/m6g/r6g/db.t* pattern"
+    },
+    {
+      "ruleId": "prod-compute-no-public",
+      "ruleName": "Production compute not public",
+      "severity": "critical",
+      "serviceId": "ec2-prod-api",
+      "reason": "expected publiclyAccessible === false, got true",
+      "field": "publiclyAccessible",
+      "actual": true,
+      "expected": "publiclyAccessible === false"
+    },
+    {
+      "ruleId": "cache-encryption",
+      "ruleName": "Cache encryption at rest",
+      "severity": "high",
+      "serviceId": "elasticache-prod-sessions",
+      "reason": "expected encryptionAtRest === true, got false",
+      "field": "encryptionAtRest",
+      "actual": false,
+      "expected": "encryptionAtRest === true"
+    },
+    {
+      "ruleId": "storage-encryption",
+      "ruleName": "Object storage encryption",
+      "severity": "high",
+      "serviceId": "s3-staging-logs",
+      "reason": "expected encryptionAtRest === true, got false",
+      "field": "encryptionAtRest",
+      "actual": false,
+      "expected": "encryptionAtRest === true"
     }
-  ],
-  "passed": false
+  ]
 }

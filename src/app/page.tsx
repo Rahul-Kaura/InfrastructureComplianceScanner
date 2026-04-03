@@ -16,17 +16,20 @@ interface ChatLine {
 
 const DEFAULT_INFRA = `{
   "version": "1",
+  "generatedAt": "2026-04-01T12:00:00Z",
   "services": [
     {
       "id": "rds-prod-orders",
       "name": "orders-primary",
+      "owner": "payments",
       "type": "database",
       "environment": "production",
       "automatedBackups": true,
       "encryptionAtRest": true,
       "publiclyAccessible": false,
       "replicaCount": 2,
-      "instanceType": "db.r5.xlarge"
+      "instanceType": "db.r5.xlarge",
+      "tags": { "team": "payments", "cost-center": "cc-42" }
     },
     {
       "id": "rds-prod-audit",
@@ -39,6 +42,17 @@ const DEFAULT_INFRA = `{
       "instanceType": "db.m5.2xlarge"
     },
     {
+      "id": "rds-staging-analytics",
+      "type": "database",
+      "environment": "staging",
+      "automatedBackups": true,
+      "encryptionAtRest": false,
+      "publiclyAccessible": false,
+      "replicaCount": 1,
+      "instanceType": "db.t3.medium",
+      "tags": { "team": "analytics" }
+    },
+    {
       "id": "rds-dev-sandbox",
       "type": "database",
       "environment": "development",
@@ -46,7 +60,37 @@ const DEFAULT_INFRA = `{
       "encryptionAtRest": true,
       "publiclyAccessible": false,
       "replicaCount": 0,
-      "instanceType": "db.r5.large"
+      "instanceType": "db.r5.large",
+      "tags": { "team": "engineering" }
+    },
+    {
+      "id": "ec2-dev-batch",
+      "type": "compute",
+      "environment": "development",
+      "instanceType": "t3.small",
+      "publiclyAccessible": false
+    },
+    {
+      "id": "ec2-prod-api",
+      "type": "compute",
+      "environment": "production",
+      "instanceType": "m5.large",
+      "publiclyAccessible": true,
+      "tags": { "team": "platform" }
+    },
+    {
+      "id": "elasticache-prod-sessions",
+      "type": "cache",
+      "environment": "production",
+      "encryptionAtRest": false,
+      "tags": { "team": "platform" }
+    },
+    {
+      "id": "s3-staging-logs",
+      "type": "storage",
+      "environment": "staging",
+      "encryptionAtRest": false,
+      "tags": { "team": "data" }
     }
   ]
 }`;
@@ -57,12 +101,10 @@ const DEFAULT_POLICIES = `{
     {
       "id": "prod-db-backups",
       "name": "Production DB backups",
-      "description": "Production databases must have automated backups on.",
+      "description": "All production databases must have automated backups enabled.",
       "severity": "critical",
       "appliesTo": { "type": "database", "environment": "production" },
-      "assert": [
-        { "field": "automatedBackups", "op": "eq", "value": true, "expect": "true" }
-      ]
+      "assert": [{ "field": "automatedBackups", "op": "eq", "value": true, "expect": "automatedBackups === true" }]
     },
     {
       "id": "db-encryption",
@@ -70,9 +112,7 @@ const DEFAULT_POLICIES = `{
       "description": "All databases must use encryption at rest.",
       "severity": "high",
       "appliesTo": { "type": "database" },
-      "assert": [
-        { "field": "encryptionAtRest", "op": "eq", "value": true, "expect": "true" }
-      ]
+      "assert": [{ "field": "encryptionAtRest", "op": "eq", "value": true, "expect": "encryptionAtRest === true" }]
     },
     {
       "id": "prod-db-no-public",
@@ -80,29 +120,63 @@ const DEFAULT_POLICIES = `{
       "description": "Production databases cannot be publicly accessible.",
       "severity": "critical",
       "appliesTo": { "type": "database", "environment": "production" },
-      "assert": [
-        { "field": "publiclyAccessible", "op": "eq", "value": false, "expect": "false" }
-      ]
+      "assert": [{ "field": "publiclyAccessible", "op": "eq", "value": false, "expect": "publiclyAccessible === false" }]
     },
     {
       "id": "prod-db-ha",
       "name": "Production HA replicas",
-      "description": "Production databases need at least 2 replicas.",
+      "description": "Production databases must have at least 2 replicas for HA.",
       "severity": "high",
       "appliesTo": { "type": "database", "environment": "production" },
-      "assert": [
-        { "field": "replicaCount", "op": "gte", "value": 2, "expect": ">= 2" }
-      ]
+      "assert": [{ "field": "replicaCount", "op": "gte", "value": 2, "expect": "replicaCount >= 2" }]
     },
     {
       "id": "dev-cost-instance",
-      "name": "Dev cost-optimized instances",
-      "description": "Non-prod DBs should use smaller / burstable classes.",
+      "name": "Dev/staging cost-optimized DB classes",
+      "description": "Non-production databases should use burstable or smaller instance families.",
       "severity": "medium",
       "appliesTo": { "type": "database", "environment": ["development", "staging"] },
-      "assert": [
-        { "field": "instanceType", "op": "matches", "value": "costOptimizedInstance" }
-      ]
+      "assert": [{ "field": "instanceType", "op": "matches", "value": "costOptimizedInstance", "expect": "instance type matches t3/t4g/t3a/m6g/r6g/db.t* pattern" }]
+    },
+    {
+      "id": "db-team-tag",
+      "name": "Database ownership tag",
+      "description": "Every database must declare a team tag for escalation and cost allocation.",
+      "severity": "medium",
+      "appliesTo": { "type": "database" },
+      "assert": [{ "field": "tags.team", "op": "in", "value": ["payments", "platform", "analytics", "data", "engineering"], "expect": "tags.team in approved list" }]
+    },
+    {
+      "id": "prod-db-no-micro-sku",
+      "name": "Production DB not on micro SKU",
+      "description": "Production databases cannot run on micro/burst micro classes.",
+      "severity": "high",
+      "appliesTo": { "type": "database", "environment": "production" },
+      "assert": [{ "field": "instanceType", "op": "notIn", "value": ["db.t3.micro", "db.t4g.micro", "db.t2.micro"], "expect": "instanceType not a micro class" }]
+    },
+    {
+      "id": "prod-compute-no-public",
+      "name": "Production compute not public",
+      "description": "Production compute instances must not be directly internet-facing.",
+      "severity": "critical",
+      "appliesTo": { "type": "compute", "environment": "production" },
+      "assert": [{ "field": "publiclyAccessible", "op": "eq", "value": false, "expect": "publiclyAccessible === false" }]
+    },
+    {
+      "id": "cache-encryption",
+      "name": "Cache encryption at rest",
+      "description": "Managed caches must enable encryption at rest.",
+      "severity": "high",
+      "appliesTo": { "type": "cache" },
+      "assert": [{ "field": "encryptionAtRest", "op": "eq", "value": true, "expect": "encryptionAtRest === true" }]
+    },
+    {
+      "id": "storage-encryption",
+      "name": "Object storage encryption",
+      "description": "Storage buckets or object stores must use encryption at rest.",
+      "severity": "high",
+      "appliesTo": { "type": "storage" },
+      "assert": [{ "field": "encryptionAtRest", "op": "eq", "value": true, "expect": "encryptionAtRest === true" }]
     }
   ]
 }`;
@@ -217,8 +291,7 @@ export default function Home() {
 
         <section className="flex max-h-[min(70vh,720px)] flex-col rounded-2xl border border-white/10 bg-slate-950/50 shadow-xl backdrop-blur-md">
           <div className="border-b border-white/10 px-5 py-3">
-            <h2 className="text-sm font-medium text-indigo-200/90">Session</h2>
-            <p className="text-xs text-slate-500">Moon-chat style feed of actions and findings</p>
+            <h2 className="text-sm font-medium text-indigo-200/90">Results</h2>
           </div>
           <div className="flex-1 space-y-4 overflow-y-auto p-5">
             {lines.map((line) => (
