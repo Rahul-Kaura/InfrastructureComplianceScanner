@@ -2,7 +2,18 @@
 
 Description:
 
-The product is a policy evaluation service for infrastructure-shaped data. It loads a normalized service snapshot (JSON: a list of resources with type, environment, and attributes such as backup, encryption, and instance class) and a compliance rule bundle (JSON: selectors plus field assertions). A shared rule engine evaluates every applicable rule against every matching service and returns a structured violation list (rule identity, service identity, severity, human-readable reason, and field-level actual vs expected). The web layer exposes that engine through an interactive editor and scan flow; the API and CLI invoke the same evaluation logic so results stay consistent across entry points. Sample inputs and a frozen example scan output live under `examples/`.
+The Infrastructure Compliance Scanner takes a clean, standardized snapshot of your infrastructure (a JSON list of services and their details) along with policies you provide. You can write these policies either as simple bullet points in plain English (which are pattern-matched into rules, not using AI) or as JSON.
+
+Everything is then processed by a single TypeScript rule engine. This engine checks each service against each rule and returns:
+
+* **Violations** (what failed)
+* **Passes** (which service-rule combinations succeeded)
+
+The web UI uses a fixed sample dataset on the server, so you mainly focus on editing policies. The API endpoint (`POST /api/scan`) and the CLI tool (`scan-cli`) both use the exact same rule engine, making it easy to automate checks or run them in CI pipelines.
+
+The app is packaged using Docker and Docker Compose so it runs the same way locally and on a server. There are also example Kubernetes and Helm setups showing how to deploy it in a cluster with standard health checks and configuration.
+
+Actual data collection (like pulling from cloud providers) is not included in the repo. Instead, the system always works with the same clean JSON format, no matter where the data comes from.
 
 Technologies:
 
