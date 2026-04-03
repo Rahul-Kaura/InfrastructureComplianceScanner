@@ -1,0 +1,83 @@
+{
+  "version": "1",
+  "rules": [
+    {
+      "id": "prod-db-backups",
+      "name": "Production DB backups",
+      "description": "All production databases must have automated backups enabled.",
+      "severity": "critical",
+      "appliesTo": { "type": "database", "environment": "production" },
+      "assert": [
+        {
+          "field": "automatedBackups",
+          "op": "eq",
+          "value": true,
+          "expect": "automatedBackups === true"
+        }
+      ]
+    },
+    {
+      "id": "db-encryption",
+      "name": "Encryption at rest",
+      "description": "All databases must use encryption at rest.",
+      "severity": "high",
+      "appliesTo": { "type": "database" },
+      "assert": [
+        {
+          "field": "encryptionAtRest",
+          "op": "eq",
+          "value": true,
+          "expect": "encryptionAtRest === true"
+        }
+      ]
+    },
+    {
+      "id": "prod-db-no-public",
+      "name": "No public production DBs",
+      "description": "Production databases cannot be publicly accessible.",
+      "severity": "critical",
+      "appliesTo": { "type": "database", "environment": "production" },
+      "assert": [
+        {
+          "field": "publiclyAccessible",
+          "op": "eq",
+          "value": false,
+          "expect": "publiclyAccessible === false"
+        }
+      ]
+    },
+    {
+      "id": "prod-db-ha",
+      "name": "Production HA replicas",
+      "description": "Production databases must have at least 2 replicas for HA.",
+      "severity": "high",
+      "appliesTo": { "type": "database", "environment": "production" },
+      "assert": [
+        {
+          "field": "replicaCount",
+          "op": "gte",
+          "value": 2,
+          "expect": "replicaCount >= 2"
+        }
+      ]
+    },
+    {
+      "id": "dev-cost-instance",
+      "name": "Dev/staging cost-optimized DB classes",
+      "description": "Non-production databases should use burstable or smaller instance families.",
+      "severity": "medium",
+      "appliesTo": {
+        "type": "database",
+        "environment": ["development", "staging"]
+      },
+      "assert": [
+        {
+          "field": "instanceType",
+          "op": "matches",
+          "value": "costOptimizedInstance",
+          "expect": "instance type matches t3/t4g/t3a/m6g/r6g/db.t* pattern"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "version": "1",
+  "generatedAt": "2026-04-01T12:00:00Z",
+  "services": [
+    {
+      "id": "rds-prod-orders",
+      "name": "orders-primary",
+      "type": "database",
+      "environment": "production",
+      "automatedBackups": true,
+      "encryptionAtRest": true,
+      "publiclyAccessible": false,
+      "replicaCount": 2,
+      "instanceType": "db.r5.xlarge",
+      "tags": { "team": "payments", "cost-center": "cc-42" }
+    },
+    {
+      "id": "rds-prod-audit",
+      "type": "database",
+      "environment": "production",
+      "automatedBackups": false,
+      "encryptionAtRest": true,
+      "publiclyAccessible": true,
+      "replicaCount": 0,
+      "instanceType": "db.m5.2xlarge"
+    },
+    {
+      "id": "rds-staging-analytics",
+      "type": "database",
+      "environment": "staging",
+      "automatedBackups": true,
+      "encryptionAtRest": false,
+      "publiclyAccessible": false,
+      "replicaCount": 1,
+      "instanceType": "db.t3.medium"
+    },
+    {
+      "id": "rds-dev-sandbox",
+      "type": "database",
+      "environment": "development",
+      "automatedBackups": true,
+      "encryptionAtRest": true,
+      "publiclyAccessible": false,
+      "replicaCount": 0,
+      "instanceType": "db.r5.large"
+    },
+    {
+      "id": "ec2-dev-batch",
+      "type": "compute",
+      "environment": "development",
+      "instanceType": "t3.small",
+      "publiclyAccessible": false
+    }
+  ]
+}

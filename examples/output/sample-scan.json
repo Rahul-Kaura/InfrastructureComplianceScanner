@@ -1,0 +1,58 @@
+{
+  "scannedAt": "2026-04-03T05:04:13.557Z",
+  "serviceCount": 5,
+  "ruleCount": 5,
+  "violations": [
+    {
+      "ruleId": "prod-db-backups",
+      "ruleName": "Production DB backups",
+      "severity": "critical",
+      "serviceId": "rds-prod-audit",
+      "reason": "expected automatedBackups === true, got false",
+      "field": "automatedBackups",
+      "actual": false,
+      "expected": "automatedBackups === true"
+    },
+    {
+      "ruleId": "prod-db-no-public",
+      "ruleName": "No public production DBs",
+      "severity": "critical",
+      "serviceId": "rds-prod-audit",
+      "reason": "expected publiclyAccessible === false, got true",
+      "field": "publiclyAccessible",
+      "actual": true,
+      "expected": "publiclyAccessible === false"
+    },
+    {
+      "ruleId": "prod-db-ha",
+      "ruleName": "Production HA replicas",
+      "severity": "high",
+      "serviceId": "rds-prod-audit",
+      "reason": "expected >= 2, got 0",
+      "field": "replicaCount",
+      "actual": 0,
+      "expected": "replicaCount >= 2"
+    },
+    {
+      "ruleId": "db-encryption",
+      "ruleName": "Encryption at rest",
+      "severity": "high",
+      "serviceId": "rds-staging-analytics",
+      "reason": "expected encryptionAtRest === true, got false",
+      "field": "encryptionAtRest",
+      "actual": false,
+      "expected": "encryptionAtRest === true"
+    },
+    {
+      "ruleId": "dev-cost-instance",
+      "ruleName": "Dev/staging cost-optimized DB classes",
+      "severity": "medium",
+      "serviceId": "rds-dev-sandbox",
+      "reason": "dev/staging should use a cost-optimized family (e.g. t3/t4g); got db.r5.large",
+      "field": "instanceType",
+      "actual": "db.r5.large",
+      "expected": "instance type matches t3/t4g/t3a/m6g/r6g/db.t* pattern"
+    }
+  ],
+  "passed": false
+}

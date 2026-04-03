@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+:root {
+  --moon-glow: #c4d4f0;
+  --orbit: #1a1f35;
+  --deep: #0a0c14;
+  --accent: #7c9cff;
+  --danger: #ff6b8a;
+  --ok: #5ce1a6;
+}
+
+body {
+  background: radial-gradient(ellipse 120% 80% at 50% -20%, #1e2640 0%, var(--deep) 45%);
+  color: #e8ecf7;
+  min-height: 100vh;
+}

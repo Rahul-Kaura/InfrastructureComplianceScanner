@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: compliance-scanner
+  labels:
+    app: compliance-scanner
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: compliance-scanner
+  template:
+    metadata:
+      labels:
+        app: compliance-scanner
+    spec:
+      containers:
+        - name: web
+          image: compliance-scanner:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: compliance-scanner
+spec:
+  selector:
+    app: compliance-scanner
+  ports:
+    - port: 80
+      targetPort: 3000
