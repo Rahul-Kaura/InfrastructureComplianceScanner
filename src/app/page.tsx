@@ -277,8 +277,7 @@ export default function Home() {
       </div>
 
       <footer className="relative z-10 mt-10 text-center text-xs text-slate-600">
-        Sample inputs and example output live under{" "}
-        <code className="font-[family-name:var(--font-mono)] text-slate-500">examples/</code>
+        Fixtures under <code className="font-[family-name:var(--font-mono)] text-slate-500">examples/</code>
       </footer>
     </main>
   );
