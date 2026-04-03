@@ -5,6 +5,7 @@
     {
       "id": "rds-prod-orders",
       "name": "orders-primary",
+      "owner": "payments",
       "type": "database",
       "environment": "production",
       "automatedBackups": true,
