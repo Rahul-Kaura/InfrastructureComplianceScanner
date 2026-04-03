@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  /* palette tokens for the moon theme; some are reserved for future components */
   --moon-glow: #c4d4f0;
   --orbit: #1a1f35;
   --deep: #0a0c14;
