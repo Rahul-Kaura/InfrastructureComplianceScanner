@@ -2,6 +2,13 @@
   "name": "infrastructure-compliance-scanner",
   "version": "0.1.0",
   "description": "Policy checks against a normalized infra snapshot (web, API, CLI).",
+  "keywords": [
+    "compliance",
+    "infrastructure",
+    "policy",
+    "nextjs",
+    "typescript"
+  ],
   "private": true,
   "engines": {
     "node": ">=20.9.0"
