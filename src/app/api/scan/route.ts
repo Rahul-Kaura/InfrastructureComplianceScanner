@@ -8,7 +8,10 @@ export async function POST(req: Request) {
     const policyText = body.policies;
     if (typeof infraText !== "string" || typeof policyText !== "string") {
       return NextResponse.json(
-        { error: "Send JSON with string fields: infrastructure, policies" },
+        {
+          error:
+            "Request body must be JSON with two string fields: infrastructure and policies (each containing JSON text).",
+        },
         { status: 400 },
       );
     }
