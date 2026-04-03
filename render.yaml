@@ -12,13 +12,13 @@ services:
     region: oregon
     plan: free
     branch: main
-    buildCommand: npm ci && npm run build
+    # NODE_ENV=production during install makes npm ci skip devDependencies (TS, ESLint, Tailwind),
+    # which breaks next build. --include=dev keeps them; Render sets NODE_ENV for runtime itself.
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: npm run start
     healthCheckPath: /
     envVars:
       - key: NODE_VERSION
         value: "22"
-      - key: NODE_ENV
-        value: production
       - key: NEXT_TELEMETRY_DISABLED
         value: "1"
