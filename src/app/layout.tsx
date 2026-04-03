@@ -14,7 +14,7 @@ const jetbrains = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "Compliance scanner",
-  description: "Infra snapshot vs policy rules",
+  description: "Compare an infrastructure snapshot to JSON policies and list violations.",
 };
 
 export default function RootLayout({
