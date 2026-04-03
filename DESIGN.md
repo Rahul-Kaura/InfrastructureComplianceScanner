@@ -257,8 +257,6 @@ Why: see section 1. Alternatives: YAML (similar trade-offs), Rego bundles (more 
 
 ## 9. Forward-looking questions and product evolution
 
-
-
 1. How do we evaluate Terraform plans in pull requests before apply, using the same rules as post-deploy reconciliation, without double-counting resources that exist only in plan?
 2. How should exception workflows work (time-bound waivers, approvers, audit trail) without weakening the default deny posture for critical rules?
 3. What is the right SLA for snapshot freshness per environment (production hourly vs development daily), and how do we alert when collection falls behind?
@@ -271,6 +269,54 @@ Why: see section 1. Alternatives: YAML (similar trade-offs), Rego bundles (more 
 10. How would we fuzz or property-test the evaluator (random valid snapshots, invariant: no crash, deterministic output for fixed inputs)?
 11. How do we size and autoscale evaluator worker pools independently from API pods (custom metrics, KEDA on queue depth, cost caps per environment)?
 12. Should the Docker image be split into a **slim worker** image (no UI) for batch scans and a **full** image for the console, to shrink attack surface and cold-start time at scale?
+
+---
+
+## 10. Next iteration: LLM-assisted policy authoring (goal and rough plan)
+
+### Why add an LLM
+
+Today, policies are hand-written JSON. That is precise and reviewable but excludes people who think in requirements (“no production database without backups”) rather than in `assert` blocks. **Next time around**, an LLM-backed flow would let users **describe policies in natural language** and get **draft rules** in the existing JSON schema—still validated by the same engine, so behavior stays deterministic once the rule is accepted.
+
+The LLM is a **productivity and UX layer**, not a replacement for the evaluator: the rule engine remains the source of truth for what “pass” means; the model only proposes structured text that must pass schema checks before it can run.
+
+### Risks to design around
+
+- **Hallucinated fields or operators** that do not exist on `ServiceConfig` → mitigated by strict JSON Schema / Zod validation and rejecting invalid bundles.
+- **Over-broad or ambiguous rules** → mitigated by human review, preview against sample snapshots, and optional “explain this rule in English” reverse pass for sanity checking.
+- **Audit and compliance** → log user prompt, model version, temperature, and output hash; treat AI-generated rules like any other change (PR, approvers).
+- **Data leakage** → avoid sending real resource IDs or secrets in prompts; use redacted fixtures or synthetic examples in the authoring UI.
+
+### Rough implementation plan (phased)
+
+**Phase 1 — Authoring API and validation gate**
+
+- Add a server route (e.g. `POST /api/policies/suggest`) that accepts `{ "intent": "plain text description", "context?": "optional org hints" }`.
+- System prompt includes: the **exact JSON schema** for `PolicyBundle` and `ComplianceRule`, a **short field catalog** (which keys exist on services for each `type`), and **2–3 gold examples** (input sentence → output JSON).
+- Model returns **only JSON** (no markdown); server parses and validates with the same structural checks as `parsePolicyJson`, plus optional JSON Schema.
+- If validation fails, either return structured errors to the UI or run a **single repair pass** (“fix the following validation errors: …”) with a low temperature cap.
+
+**Phase 2 — Product UI**
+
+- In the scanner UI, add a **“Describe a policy”** panel: textarea + **Generate draft** → side-by-side **preview** of generated rules next to the hand-edited JSON.
+- Buttons: **Apply to editor** (user can still edit), **Run dry scan** against current snapshot (no persist), **Copy / export**.
+- Show a short **natural-language summary** of what the model produced so non-authors can sanity-check before merge.
+
+**Phase 3 — Quality and governance**
+
+- **RAG (optional):** embed existing rule library + internal wiki snippets (“what does replicaCount mean for RDS?”) so suggestions align with house style and naming (`rule.id` conventions).
+- **CI golden tests:** checked-in prompts and expected JSON (or expected parse + scan outcomes) so model or prompt upgrades do not regress authoring.
+- **Environments:** sandbox model for drafts; stricter approval (or disabled LLM) for production policy bundles; feature flag per tenant.
+
+**Phase 4 — Hardening**
+
+- Rate limits and quotas on the suggest endpoint; no training on customer prompts unless contractually allowed.
+- Optional **second model** or **static linter** pass: “does this rule only reference allowed fields for the stated `appliesTo`?”
+- Consider **small specialized fine-tune** later only if few-shot + RAG is insufficient; default stays general models + strong validation.
+
+### How this connects to the rest of the design
+
+Collection, snapshots, evaluation, reporting, and scaling **stay unchanged**. The LLM sits **upstream** of the policy bundle: users still store versioned JSON, still open PRs, still run the same `scan()` function. That keeps the architecture honest—the compliance verdict is never “whatever the model guessed at runtime,” only **rules humans (or processes) have accepted** after validation.
 
 ---
 
