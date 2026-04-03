@@ -16,3 +16,4 @@ Technologies:
 - Helm (example chart)
 - Terraform (example module under examples/terraform, illustrative only)
 - JSON (snapshot and policy file formats)
+- Render (`render.yaml` blueprint for a hosted web service so you are not tied to localhost)
