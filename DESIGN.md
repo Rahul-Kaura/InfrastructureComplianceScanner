@@ -105,6 +105,25 @@ Production systems should persist each run: run id, timestamp, pass/fail, violat
 
 Jira, ServiceNow, PagerDuty, or Slack webhooks sit naturally on top of the structured violation stream. SARIF export is a reasonable addition for security dashboards that already consume static analysis formats.
 
+### Change observability model (business and operations)
+
+At the scale of a large product company—**many services, frequent releases, multiple environments**—compliance is not only a pass/fail snapshot. Stakeholders need to understand **what changed**, **when**, and **why posture moved**. That is a **change observability** problem: the same class of thinking used to debug production (“what deployed before the outage?”) applied to **governance and risk**.
+
+**What we persist and correlate**
+
+- **Time series of scan results** (violation counts, severity mix, new vs resolved findings) so leadership sees trend, not just a single dashboard tile.
+- **Diffs between snapshots** (which resources appeared, disappeared, or changed material fields) so engineers can tie a spike in violations to a **specific release, config rollout, or account onboarding**—not guess from a static list.
+- **Policy lineage** (which rule version was active for run *N*) so audits can answer “was this finding evaluated under the stricter rule we shipped Tuesday?”
+- **Change metadata** where available: deploy id, pipeline run, change ticket, owning team—stored as tags on the run or joined from a CMDB so **accountability** is explicit.
+
+**Why this matters for the business**
+
+- **Executives and GRC** need narrative: risk trending up or down, concentration by business unit, and confidence that exceptions are time-bound—not a spreadsheet exported once a quarter.
+- **Engineering managers** need to know if a team’s backlog of violations grew because of their shipping velocity or because **central policy tightened**; without change context, teams argue over the wrong problem.
+- **Customer and partner trust** (enterprise sales, regulated industries, AI governance expectations) increasingly expect **evidence of continuous control**, not point-in-time screenshots. Change observability supports “show me the history” conversations.
+
+This reference implementation stores enough in principle (structured violations, timestamps, hashable inputs) to grow into that model; the **product** step is persisting runs, diffing snapshots, and surfacing “what changed” next to “what failed.” That layer should be designed **with business consumers in mind** (filters by org, env, product line), not only for SREs reading raw JSON.
+
 ---
 
 ## 5. Scaling to thousands of services across multiple environments (in depth)
@@ -251,24 +270,41 @@ Why: see section 1. Alternatives: YAML (similar trade-offs), Rego bundles (more 
 - Infrastructure and systems thinking: separation of collection vs evaluation, scaling levers, and honest limits (snapshots, JSON rules).
 - Reasonable technical decisions: each major technology has a stated alternative and a reason it was not selected for this codebase.
 - Clean code and error handling: validation at ingest, structured violations, non-zero CLI exit on failure, explicit API errors on bad input (in the implementation).
-- Clear communication: this document is the single place design intent lives; the README stays a short product and stack summary.
+- Clear communication: this document is the single place design intent lives; the README stays a short product and stack summary—and explanations should stay legible to **business and GRC stakeholders**, not only to engineers (especially around **change observability** and risk narrative).
 
 ---
 
-## 9. Forward-looking questions and product evolution
+## 9. Forward-looking: business context, change observability, and MCP
 
-1. How do we evaluate Terraform plans in pull requests before apply, using the same rules as post-deploy reconciliation, without double-counting resources that exist only in plan?
-2. How should exception workflows work (time-bound waivers, approvers, audit trail) without weakening the default deny posture for critical rules?
-3. What is the right SLA for snapshot freshness per environment (production hourly vs development daily), and how do we alert when collection falls behind?
-4. When should we introduce OPA or CEL for a subset of rules, and how do we keep JSON and advanced rules composable in one bundle?
-5. How do we expose compliance posture as metrics (violations by team, by rule, trend over 30 days) for leadership dashboards without leaking resource identifiers?
-6. How would multi-tenant SaaS isolation work (per-tenant policy namespaces, encryption at rest for stored runs, row-level security)?
-7. What is the incident story when the policy engine has a bug—rollback policy version, replay historical snapshots, or feature-flag individual rules?
-8. How do we integrate with AWS Security Hub, Azure Policy insights, or GCP SCC so we do not duplicate findings that already exist natively?
-9. Can we generate remediation hints or auto-tickets with direct links to the correct Terraform module or runbook section per rule id?
-10. How would we fuzz or property-test the evaluator (random valid snapshots, invariant: no crash, deterministic output for fixed inputs)?
-11. How do we size and autoscale evaluator worker pools independently from API pods (custom metrics, KEDA on queue depth, cost caps per environment)?
-12. Should the Docker image be split into a **slim worker** image (no UI) for batch scans and a **full** image for the console, to shrink attack surface and cold-start time at scale?
+The questions below are intentionally framed for **product, risk, and operations conversations**—not as a low-level backlog. They assume a large, multi-team estate where compliance is continuous and **understanding change** is as important as the current violation list.
+
+### Business, risk, and customer trust
+
+1. How should we **report posture to leadership** (risk appetite, open criticals, aging exceptions) in language that supports board and customer conversations—not just engineering metrics?
+2. What is the **business process** for accepting residual risk: who approves exceptions, for how long, and how do we renew or sunset them without silent drift?
+3. How do **roadmaps and releases** interact with policy: when security tightens rules, how do we give product teams **predictable windows** and capacity planning instead of surprise pipeline failures?
+4. For **regulated or enterprise customers**, what evidence pack (history of scans, policy versions, change correlation) do we need to sell and renew—and how do we generate it without manual heroics?
+5. How do we articulate **ROI** of this program: audit prep time saved, mean time to remediate, reduction in repeat findings?
+
+### Change observability (operational and GRC narrative)
+
+6. When violation counts jump, how do we **automatically distinguish** “we shipped bad config” vs “we added new resources” vs “policy got stricter”—and surface that in the UI or exec summary?
+7. What **minimum change metadata** (deploy id, service owner, change ticket) should every scan run capture so postmortems and audits can answer “what changed before this finding appeared?”
+8. How long do we **retain** snapshot diffs and run history for legal hold vs cost—and how do we redact sensitive fields while keeping the narrative intact?
+9. Can we ship a **“compliance diff”** view for release managers: “this release introduces these new risks or clears these old ones” before go-live?
+
+### Ecosystem: MCP servers and internal agents
+
+**Model Context Protocol (MCP)** is a practical way to let **assistants and internal tools** pull **authorized, structured context** (read-only CMDB rows, latest scan summary, ticket status) instead of pasting secrets into chat. In a future iteration, **MCP servers** could expose tools such as: fetch last scan result for an environment, list open violations for a team, or retrieve policy text for rule `id`—always through **central authZ**, audit logs, and rate limits.
+
+10. Which **MCP tools** are safe to expose first (read-only, aggregated) vs which must stay human-in-the-loop (policy edits, exception grants)?
+11. How do we **govern** third-party or internal agents that call MCP: consent, data residency, and proof that no tenant data crosses boundaries?
+12. Could an internal copilot **draft remediation steps** by combining violation JSON + runbook MCP + ticketing MCP—while **never** bypassing the rule engine for the actual verdict?
+
+### Portfolio and scale (still business-led)
+
+13. How do we **prioritize** which services or environments get stricter SLAs first when we cannot scan everything every hour—based on revenue, data class, or customer contracts?
+14. How do **partners or managed offerings** change who owns the snapshot and who sees violations—without fragmenting the single risk story leadership expects?
 
 ---
 
