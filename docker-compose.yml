@@ -1,3 +1,4 @@
+# Local prod-mode image; swap image: for a registry tag in CI
 services:
   scanner:
     build: .
