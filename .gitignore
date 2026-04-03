@@ -34,3 +34,7 @@ yarn-error.log*
 
 # test
 coverage
+
+# local design docs (kept outside git)
+DESIGN.md
+DESIGN_IMPLEMENTATION.md
