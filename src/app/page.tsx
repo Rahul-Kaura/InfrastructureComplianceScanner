@@ -120,7 +120,7 @@ export default function Home() {
     {
       id: "welcome",
       role: "system",
-      text: "Load a snapshot and policy pack, then run a scan. Violations show up as cards below—each ties a service to the rule that failed.",
+      text: "Edit the snapshot and policies JSON, then run a scan. Each violation ties a service to the rule that failed.",
     },
   ]);
   const [loading, setLoading] = useState(false);
