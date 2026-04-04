@@ -14,6 +14,8 @@ Web app and shared TypeScript engine that evaluates **policies** against a norma
 
 TypeScript, Node.js 20+, Next.js (App Router), React, Tailwind CSS, **jspdf** (PDF export). Docker / Compose, and example Kubernetes / Helm manifests are included for deployment patterns.
 
+For a file-by-file map (OpenAI, Docker, K8s, future ideas), see **[docs/TECH_STACK.md](docs/TECH_STACK.md)**.
+
 ## Screenshots
 
 Uniphore SSO sign-in (demo gate before the app):
