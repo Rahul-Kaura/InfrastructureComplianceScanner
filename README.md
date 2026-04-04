@@ -30,9 +30,17 @@ TypeScript, Node.js 20+, Next.js (App Router), React, Tailwind CSS, **jspdf** (P
 
 ## Screenshots
 
-![UI empty state](assets/ui-empty.png)
+Uniphore SSO sign-in (demo gate before the app):
 
-![UI with violations](assets/ui-violations.png)
+![Uniphore SSO sign-in](assets/ui-sso-login.png)
+
+Main scanner — inventory, disclaimer, and results panel:
+
+![Compliance Scanner main view](assets/ui-scanner-main.png)
+
+Policies — rules, OpenAI draft, and policy bundle editor:
+
+![Policies and AI-assisted rules](assets/ui-policies.png)
 
 ## Future ideas
 
