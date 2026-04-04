@@ -10,6 +10,11 @@ import {
   type Violation,
 } from "@/lib/engine";
 import { downloadCompliancePdf, type ComplianceReportPayload } from "@/lib/compliancePdf";
+import {
+  UniphoreSsoLogin,
+  clearUniphoreDemoSession,
+  readUniphoreDemoSession,
+} from "@/components/UniphoreSsoLogin";
 
 function serviceCountFromInventory(json: string): number | null {
   try {
@@ -127,7 +132,16 @@ export default function Home() {
     },
   ]);
   const [loading, setLoading] = useState(false);
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (readUniphoreDemoSession()) {
+      setAuthenticated(true);
+    }
+    setSessionChecked(true);
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -290,11 +304,33 @@ export default function Home() {
   const canScan =
     builtInventoryJson.trim().length > 0 && policies.trim().length > 0 && !loading;
 
+  if (!sessionChecked) {
+    return (
+      <main className="relative mx-auto flex min-h-screen max-w-6xl flex-col items-center justify-center px-4">
+        <p className="text-sm text-slate-500">Loading…</p>
+      </main>
+    );
+  }
+
+  if (!authenticated) {
+    return <UniphoreSsoLogin onAuthenticated={() => setAuthenticated(true)} />;
+  }
+
   return (
     <main className="relative mx-auto flex min-h-screen max-w-6xl flex-col px-4 pb-16 pt-10 md:px-8">
       <MoonOrb />
 
       <header className="relative z-10 mb-10 text-center">
+        <button
+          type="button"
+          onClick={() => {
+            clearUniphoreDemoSession();
+            setAuthenticated(false);
+          }}
+          className="absolute right-0 top-0 z-20 rounded-lg border border-white/15 bg-slate-900/60 px-3 py-1.5 text-[11px] font-medium text-slate-400 shadow-sm backdrop-blur-sm transition hover:border-indigo-400/40 hover:text-slate-200"
+        >
+          Sign out
+        </button>
         <p className="text-xs font-medium uppercase tracking-[0.25em] text-indigo-300/80">
           Infrastructure
         </p>
