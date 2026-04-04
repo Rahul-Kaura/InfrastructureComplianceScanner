@@ -14,9 +14,7 @@ Web app and shared TypeScript engine that evaluates **policies** against a norma
 
 TypeScript, Node.js 20+, Next.js (App Router), React, Tailwind CSS, **jspdf** (PDF export). Docker / Compose, and example Kubernetes / Helm manifests are included for deployment patterns.
 
-For a file-by-file map (OpenAI, Docker, K8s, future ideas), see **[docs/TECH_STACK.md](docs/TECH_STACK.md)**.
-
-For stakeholders: solution intent, Git for policies, data/privacy, and how AI vs rule engine fit, see **[docs/SOLUTION_OVERVIEW.md](docs/SOLUTION_OVERVIEW.md)**.
+For tech stack, **solution overview** (inputs, Git, privacy, AI vs rules), and file map, see **[docs/TECH_STACK.md](docs/TECH_STACK.md)**.
 
 ## Screenshots
 
