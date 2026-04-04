@@ -1,40 +1,39 @@
 # Infrastructure compliance scanner
 
-Description:
+Web app and shared TypeScript engine that evaluates **policies** against a normalized **infrastructure snapshot** (a JSON `services[]` list with fields such as environment, backups, encryption, public access, replicas, and instance types).
 
-The Infrastructure Compliance Scanner takes a clean, standardized snapshot of your infrastructure (a JSON list of services and their details) along with policies you provide. You can write these policies either as simple bullet points in plain English (which are pattern-matched into rules, not using AI) or as JSON.
+## How the UI works
 
-Everything is then processed by a single TypeScript rule engine. This engine checks each service against each rule and returns:
+1. **Inventory** — In **Enter Service Configuration (In Plain English)**, describe the services you want (environments, databases, compute, posture). **Build inventory** calls OpenAI (`OPENAI_API_KEY` on the server) to produce the internal snapshot. Alternatively, open **Advanced** and paste or edit full inventory JSON (`version` + `services`).
+2. **Policies** — Enter rules as JSON (each rule must include `category`: `security`, `cost`, or `operational`) or as bullet lines prefixed with `[security]`, `[cost]`, or `[operational]`. You can **Draft policies with OpenAI** from plain English.
+3. **Run scan** — The rule engine runs in-process; results are deterministic.
+4. **After a successful scan** — The results panel shows **Sent to Service Manager** and a **Download PDF of compliance results** button (browser download via `jspdf`). Violations still show severity; **passed checks** are labeled **pass** only (no severity chip in the UI).
 
-* **Violations** (what failed)
-* **Passes** (which service-rule combinations succeeded)
+## API
 
-The web UI uses a fixed sample dataset on the server, so you mainly focus on editing policies. The API endpoint (`POST /api/scan`) and the CLI tool (`scan-cli`) both use the exact same rule engine, making it easy to automate checks or run them in CI pipelines.
+- `POST /api/scan` — Body: `{ "infrastructure": "<JSON string>", "policies": "<bullets or JSON>" }`. Both are required.
+- `POST /api/infrastructure/generate` — `{ "prompt": "..." }` for plain-English inventory generation, or `{ "categories": "...", "requirements": "..." }` plus optional `additionalNotes` for structured spec mode.
+- `POST /api/policies/generate` — `{ "prompt": "..." }` returns validated policy bundle JSON.
 
-The app is packaged using Docker and Docker Compose so it runs the same way locally and on a server. There are also example Kubernetes and Helm setups showing how to deploy it in a cluster with standard health checks and configuration.
+## Same engine elsewhere
 
-Actual data collection (like pulling from cloud providers) is not included in the repo. Instead, the system always works with the same clean JSON format, no matter where the data comes from.
+The CLI (`npm run scan`) and `POST /api/scan` use the same `src/lib/engine` evaluation logic.
 
-Technologies:
+## Configuration
 
-- TypeScript
-- Node.js
-- Next.js (App Router, React)
-- Tailwind CSS
-- Docker
-- Docker Compose
-- Kubernetes (example manifests)
-- Helm (example chart)
-- JSON (snapshot and policy file formats)
-- Render (`render.yaml` blueprint for a hosted web service so you are not tied to localhost)
+- Local: copy `.env.example` to `.env.local` and set `OPENAI_API_KEY` (and optional `OPENAI_MODEL`).
+- Hosted (e.g. Render): set `OPENAI_API_KEY` in the service environment; see `render.yaml`.
 
-Screenshots:
+## Stack
+
+TypeScript, Node.js 20+, Next.js (App Router), React, Tailwind CSS, **jspdf** (PDF export). Docker / Compose, and example Kubernetes / Helm manifests are included for deployment patterns.
+
+## Screenshots
 
 ![UI empty state](assets/ui-empty.png)
 
 ![UI with violations](assets/ui-violations.png)
 
+## Future ideas
 
-Future ideas (not implemented yet):
-
-- Terraform / other IaC as an input source (convert plan JSON into the same snapshot format so rules can run pre-deploy in CI)
+- Terraform / other IaC importers that emit the same snapshot JSON for pre-deploy checks in CI.
