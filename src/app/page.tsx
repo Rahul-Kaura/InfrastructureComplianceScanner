@@ -81,11 +81,15 @@ function MoonOrb() {
 export default function Home() {
   const [policies, setPolicies] = useState(DEFAULT_POLICIES);
   const [snapshotId, setSnapshotId] = useState<SnapshotId>("default");
+  const [infrastructureJson, setInfrastructureJson] = useState("");
+  const [infraLoading, setInfraLoading] = useState(true);
+  const [policyAiPrompt, setPolicyAiPrompt] = useState("");
+  const [policyAiLoading, setPolicyAiLoading] = useState(false);
   const [lines, setLines] = useState<ChatLine[]>([
     {
       id: "welcome",
       role: "system",
-      text: "Use the buttons at the top to choose Inventory A or B, then run a scan. Results group by Security, Cost, and Operational; each violation explains what was wrong in plain language plus a recommendation. Try the same policies on both inventories to see different services fail or pass.",
+      text: "Configuration (left) is your infrastructure JSON: services[] with id, type, environment, and fields like automatedBackups. Load A/B templates or paste your own. Policies are separate (bullets or JSON). Optional: describe rules in plain English and use OpenAI to draft policy JSON (set OPENAI_API_KEY on the server). The engine still evaluates everything deterministically — the model only helps author rules.",
     },
   ]);
   const [loading, setLoading] = useState(false);
@@ -95,21 +99,83 @@ export default function Home() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [lines]);
 
+  useEffect(() => {
+    let cancelled = false;
+    setInfraLoading(true);
+    fetch(`/api/infrastructure?snapshotId=${snapshotId}`)
+      .then(async (r) => {
+        const d = (await r.json()) as { content?: string; error?: string };
+        if (!r.ok) throw new Error(d.error ?? "Failed to load infrastructure");
+        return d.content ?? "";
+      })
+      .then((text) => {
+        if (!cancelled) setInfrastructureJson(text);
+      })
+      .catch(() => {
+        if (!cancelled) setInfrastructureJson("");
+      })
+      .finally(() => {
+        if (!cancelled) setInfraLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [snapshotId]);
+
   const appendLine = useCallback((line: Omit<ChatLine, "id">) => {
     setLines((prev) => [...prev, { ...line, id: `${Date.now()}-${Math.random()}` }]);
   }, []);
+
+  const generatePoliciesWithAi = useCallback(async () => {
+    if (!policyAiPrompt.trim()) return;
+    setPolicyAiLoading(true);
+    appendLine({
+      role: "user",
+      text: "Generate policy bundle JSON from the AI prompt (OpenAI).",
+    });
+    try {
+      const res = await fetch("/api/policies/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: policyAiPrompt.trim() }),
+      });
+      const data = (await res.json()) as { policies?: string; error?: string };
+      if (!res.ok) {
+        appendLine({ role: "result", text: data.error ?? "Policy generation failed" });
+        return;
+      }
+      if (typeof data.policies === "string") {
+        setPolicies(data.policies);
+        appendLine({
+          role: "result",
+          text: "Policy JSON was generated and loaded into the policies editor. Review it, then run scan.",
+        });
+      }
+    } catch (e) {
+      appendLine({
+        role: "result",
+        text: e instanceof Error ? e.message : "Network error",
+      });
+    } finally {
+      setPolicyAiLoading(false);
+    }
+  }, [appendLine, policyAiPrompt]);
 
   const runScan = useCallback(async () => {
     setLoading(true);
     appendLine({
       role: "user",
-      text: `Run compliance scan — ${SNAPSHOT_MANIFEST[snapshotId].shortLabel} (${SNAPSHOT_MANIFEST[snapshotId].file}).`,
+      text: `Run scan — configuration from editor (template: ${SNAPSHOT_MANIFEST[snapshotId].shortLabel}).`,
     });
     try {
       const res = await fetch("/api/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ policies, snapshotId }),
+        body: JSON.stringify({
+          policies,
+          infrastructure: infrastructureJson.trim(),
+          inventoryTemplate: snapshotId,
+        }),
       });
       const data = (await res.json()) as ScanResult & {
         error?: string;
@@ -165,7 +231,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [appendLine, policies, snapshotId]);
+  }, [appendLine, policies, snapshotId, infrastructureJson]);
 
   return (
     <main className="relative mx-auto flex min-h-screen max-w-6xl flex-col px-4 pb-16 pt-10 md:px-8">
@@ -185,7 +251,7 @@ export default function Home() {
           Choose infrastructure
         </p>
         <p className="mb-4 text-center text-sm text-slate-400">
-          Same policies, different service inventories — click a button, then run scan below.
+          Loads the template into the configuration JSON editor below. Edit services there, then add policies separately.
         </p>
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
           {SNAPSHOT_IDS.map((id) => (
@@ -208,16 +274,63 @@ export default function Home() {
           ))}
         </div>
         <p className="mt-3 text-center text-[11px] text-slate-500">
-          Active:{" "}
+          Last loaded template:{" "}
           <code className="rounded bg-black/30 px-1.5 py-0.5 font-[family-name:var(--font-mono)] text-slate-400">
             examples/infrastructure/{SNAPSHOT_MANIFEST[snapshotId].file}
           </code>
+          {infraLoading ? " · loading…" : ""}
         </p>
       </div>
 
       <div className="relative z-10 grid flex-1 gap-6 lg:grid-cols-2">
-        <section className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-slate-950/40 p-5 shadow-xl backdrop-blur-md">
+        <section className="flex max-h-[min(92vh,1400px)] flex-col gap-4 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/40 p-5 shadow-xl backdrop-blur-md">
+          <h2 className="text-sm font-medium text-indigo-200/90">Configuration (inventory JSON)</h2>
+          <p className="text-[11px] leading-relaxed text-slate-500">
+            Normalized snapshot: an object with a <code className="text-slate-400">services</code> array.
+            Each service needs <code className="text-slate-400">id</code>,{" "}
+            <code className="text-slate-400">type</code>, <code className="text-slate-400">environment</code>,
+            plus optional <code className="text-slate-400">automatedBackups</code>,{" "}
+            <code className="text-slate-400">encryptionAtRest</code>,{" "}
+            <code className="text-slate-400">publiclyAccessible</code>,{" "}
+            <code className="text-slate-400">replicaCount</code>,{" "}
+            <code className="text-slate-400">instanceType</code>.
+          </p>
+          <textarea
+            className="min-h-[200px] flex-1 resize-y rounded-xl border border-white/10 bg-black/30 p-3 font-[family-name:var(--font-mono)] text-[11px] leading-relaxed text-slate-200 outline-none ring-indigo-500/30 focus:border-indigo-400/50 focus:ring-2"
+            spellCheck={false}
+            value={infrastructureJson}
+            onChange={(e) => setInfrastructureJson(e.target.value)}
+            disabled={infraLoading}
+            aria-label="Infrastructure snapshot JSON"
+            placeholder='{ "version": "1", "services": [ ... ] }'
+          />
+
           <h2 className="text-sm font-medium text-indigo-200/90">Policies</h2>
+          <p className="text-[11px] text-slate-500">
+            Separate from configuration: bullet lines or a policy bundle JSON. Optional AI assist (server needs{" "}
+            <code className="text-slate-400">OPENAI_API_KEY</code>).
+          </p>
+          <div className="rounded-xl border border-violet-500/20 bg-violet-950/15 p-3">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-violet-200/80">
+              Draft policies with OpenAI
+            </p>
+            <textarea
+              className="mb-2 min-h-[72px] w-full resize-y rounded-lg border border-white/10 bg-black/30 p-2 text-xs text-slate-200 outline-none focus:border-violet-400/40 focus:ring-1 focus:ring-violet-500/30"
+              spellCheck={false}
+              value={policyAiPrompt}
+              onChange={(e) => setPolicyAiPrompt(e.target.value)}
+              placeholder="e.g. Production databases must have backups and encryption; no public prod DBs; staging DBs should use burstable instance classes…"
+              aria-label="Prompt for AI policy generation"
+            />
+            <button
+              type="button"
+              onClick={() => void generatePoliciesWithAi()}
+              disabled={policyAiLoading || !policyAiPrompt.trim()}
+              className="rounded-lg bg-violet-600/80 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-500 disabled:opacity-40"
+            >
+              {policyAiLoading ? "Calling OpenAI…" : "Generate policy JSON"}
+            </button>
+          </div>
           <div className="rounded-xl border border-white/10 bg-black/20 p-3">
             <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
               Example scans (uses {SNAPSHOT_MANIFEST[snapshotId].shortLabel} when you run)
@@ -266,7 +379,7 @@ export default function Home() {
             </div>
           </div>
           <textarea
-            className="min-h-[min(420px,50vh)] flex-1 resize-y rounded-xl border border-white/10 bg-black/30 p-3 text-sm leading-relaxed text-slate-200 outline-none ring-indigo-500/30 focus:border-indigo-400/50 focus:ring-2"
+            className="min-h-[min(280px,35vh)] flex-1 resize-y rounded-xl border border-white/10 bg-black/30 p-3 text-sm leading-relaxed text-slate-200 outline-none ring-indigo-500/30 focus:border-indigo-400/50 focus:ring-2"
             spellCheck={false}
             value={policies}
             onChange={(e) => setPolicies(e.target.value)}
@@ -274,15 +387,13 @@ export default function Home() {
           />
           <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-center text-[11px] text-slate-500 sm:text-left">
-              Next scan:{" "}
-              <span className="font-medium text-indigo-200/90">
-                {SNAPSHOT_MANIFEST[snapshotId].shortLabel}
-              </span>
+              Scans <span className="font-medium text-indigo-200/90">configuration + policies</span> together
+              {infraLoading ? " (loading config…)" : ""}
             </p>
             <button
               type="button"
               onClick={runScan}
-              disabled={loading}
+              disabled={loading || infraLoading || !infrastructureJson.trim()}
               className="rounded-full bg-gradient-to-r from-indigo-500 to-violet-600 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:brightness-110 disabled:opacity-50"
             >
               {loading ? "Scanning…" : "Run scan"}
