@@ -44,6 +44,38 @@ function passesByCategory(passes: PassedCheck[]) {
   })).filter((g) => g.items.length > 0);
 }
 
+function groupViolationsByService(items: Violation[]) {
+  const map = new Map<string, Violation[]>();
+  const order: string[] = [];
+  for (const v of items) {
+    if (!map.has(v.serviceId)) {
+      order.push(v.serviceId);
+      map.set(v.serviceId, []);
+    }
+    map.get(v.serviceId)!.push(v);
+  }
+  return order.map((serviceId) => {
+    const rows = map.get(serviceId)!;
+    return { serviceId, serviceName: rows[0]?.serviceName, rows };
+  });
+}
+
+function groupPassesByService(items: PassedCheck[]) {
+  const map = new Map<string, PassedCheck[]>();
+  const order: string[] = [];
+  for (const p of items) {
+    if (!map.has(p.serviceId)) {
+      order.push(p.serviceId);
+      map.set(p.serviceId, []);
+    }
+    map.get(p.serviceId)!.push(p);
+  }
+  return order.map((serviceId) => {
+    const rows = map.get(serviceId)!;
+    return { serviceId, serviceName: rows[0]?.serviceName, rows };
+  });
+}
+
 export interface ComplianceReportPayload {
   scannedAt: string;
   passed: boolean;
@@ -104,15 +136,22 @@ export function downloadCompliancePdf(report: ComplianceReportPayload, filename?
       doc.setFont("helvetica", "bold");
       writeLines(CATEGORY_LABEL[category], 11);
       doc.setFont("helvetica", "normal");
-      for (const v of items) {
-        const block = [
-          `[${v.severity}] ${v.ruleName}`,
-          `Service: ${v.serviceId}${v.serviceName ? ` (${v.serviceName})` : ""}`,
-          violationSummaryPlain(v),
-          `Recommendation: ${v.recommendation}`,
-        ].join("\n");
-        writeLines(block, 9);
-        y += 2;
+      for (const { serviceId, serviceName, rows } of groupViolationsByService(items)) {
+        writeLines(
+          `Service: ${serviceId}${serviceName ? ` (${serviceName})` : ""}`,
+          10,
+        );
+        doc.setFont("helvetica", "normal");
+        for (const v of rows) {
+          const block = [
+            `[${v.severity}] ${v.ruleName}`,
+            violationSummaryPlain(v),
+            `Recommendation: ${v.recommendation}`,
+          ].join("\n");
+          writeLines(block, 9);
+          y += 2;
+        }
+        y += 4;
       }
     }
   }
@@ -126,14 +165,16 @@ export function downloadCompliancePdf(report: ComplianceReportPayload, filename?
       doc.setFont("helvetica", "bold");
       writeLines(CATEGORY_LABEL[category], 11);
       doc.setFont("helvetica", "normal");
-      for (const p of items) {
+      for (const { serviceId, serviceName, rows } of groupPassesByService(items)) {
         writeLines(
-          [`Pass — ${p.ruleName}`, `Service: ${p.serviceId}${p.serviceName ? ` (${p.serviceName})` : ""}`].join(
-            "\n",
-          ),
-          9,
+          `Service: ${serviceId}${serviceName ? ` (${serviceName})` : ""}`,
+          10,
         );
-        y += 2;
+        for (const p of rows) {
+          writeLines(`Pass — ${p.ruleName}`, 9);
+          y += 2;
+        }
+        y += 4;
       }
     }
   }

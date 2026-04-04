@@ -57,6 +57,39 @@ function passesByCategory(passes: PassedCheck[]) {
   })).filter((g) => g.items.length > 0);
 }
 
+/** Preserve first-seen service order so multi-service scans read clearly. */
+function groupViolationsByService(items: Violation[]) {
+  const map = new Map<string, Violation[]>();
+  const order: string[] = [];
+  for (const v of items) {
+    if (!map.has(v.serviceId)) {
+      order.push(v.serviceId);
+      map.set(v.serviceId, []);
+    }
+    map.get(v.serviceId)!.push(v);
+  }
+  return order.map((serviceId) => {
+    const rows = map.get(serviceId)!;
+    return { serviceId, serviceName: rows[0]?.serviceName, rows };
+  });
+}
+
+function groupPassesByService(items: PassedCheck[]) {
+  const map = new Map<string, PassedCheck[]>();
+  const order: string[] = [];
+  for (const p of items) {
+    if (!map.has(p.serviceId)) {
+      order.push(p.serviceId);
+      map.set(p.serviceId, []);
+    }
+    map.get(p.serviceId)!.push(p);
+  }
+  return order.map((serviceId) => {
+    const rows = map.get(serviceId)!;
+    return { serviceId, serviceName: rows[0]?.serviceName, rows };
+  });
+}
+
 type ChatRole = "system" | "user" | "result";
 
 interface ChatLine {
@@ -354,8 +387,7 @@ export default function Home() {
             <code className="text-slate-400">&quot;category&quot;: &quot;security&quot; | &quot;cost&quot; | &quot;operational&quot;</code>
             . <strong className="text-slate-400">Bullets:</strong> start each line with{" "}
             <code className="text-slate-400">[security]</code>, <code className="text-slate-400">[cost]</code>, or{" "}
-            <code className="text-slate-400">[operational]</code>. Server needs{" "}
-            <code className="text-slate-400">OPENAI_API_KEY</code> for AI drafting.
+            <code className="text-slate-400">[operational]</code>.
           </p>
 
           <details className="rounded-xl border border-violet-500/25 bg-violet-950/15 px-3 py-2">
@@ -393,12 +425,25 @@ export default function Home() {
             </button>
           </div>
 
+          <div className="rounded-xl border border-violet-500/20 bg-violet-950/10 px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-200/85">
+              What this editor is for
+            </p>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
+              The policy field below is the <strong className="font-medium text-slate-300">rule bundle</strong> used when
+              you click <strong className="font-medium text-slate-300">Run scan</strong>: each rule is checked against the
+              inventory you built (or pasted) above. If you used <strong className="font-medium text-slate-300">Generate
+              policy JSON</strong>, the content is <strong className="font-medium text-violet-200/90">output from OpenAI</strong>
+              — not reviewed code — so read and fix it before scanning.
+            </p>
+          </div>
+
           <textarea
             className="min-h-[min(280px,35vh)] flex-1 resize-y rounded-xl border border-white/10 bg-black/30 p-3 text-sm leading-relaxed text-slate-200 outline-none ring-indigo-500/30 focus:border-indigo-400/50 focus:ring-2"
             spellCheck={false}
             value={policies}
             onChange={(e) => setPolicies(e.target.value)}
-            aria-label="Policies as bullet list or JSON"
+            aria-label="Policy bundle for scan — JSON or bullet list"
             placeholder='JSON: { "version": "1", "rules": [ { "category": "security", ... } ] }  or bullets with [security] / [cost] / [operational] prefixes'
           />
 
@@ -450,34 +495,46 @@ export default function Home() {
                           <p className="mb-2 text-[10px] font-medium uppercase tracking-wide text-rose-300/70">
                             {CATEGORY_LABEL[category]}
                           </p>
-                          <ul className="space-y-3">
-                            {items.map((v, i) => (
-                              <li
-                                key={`${v.ruleId}-${v.serviceId}-${i}`}
-                                className="rounded-xl border border-rose-500/20 bg-rose-950/30 p-3 text-xs"
+                          <div className="space-y-4">
+                            {groupViolationsByService(items).map(({ serviceId, serviceName, rows }) => (
+                              <div
+                                key={`${category}-${serviceId}`}
+                                className="rounded-xl border border-indigo-500/25 bg-indigo-950/20 p-2"
                               >
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-200">
-                                    {v.severity}
-                                  </span>
-                                  <span className="font-medium text-rose-100">{v.ruleName}</span>
-                                </div>
-                                <p className="mt-1 text-slate-300">
-                                  <span className="text-indigo-300">{v.serviceId}</span>
-                                  {v.serviceName ? ` (${v.serviceName})` : ""}
+                                <p className="mb-2 border-b border-indigo-500/20 pb-2 font-[family-name:var(--font-mono)] text-[11px] font-semibold tracking-wide text-indigo-200">
+                                  Service{" "}
+                                  <span className="text-indigo-100">{serviceId}</span>
+                                  {serviceName ? (
+                                    <span className="font-normal text-indigo-300/90"> · {serviceName}</span>
+                                  ) : null}
                                 </p>
-                                <p className="mt-2 text-[13px] leading-relaxed text-slate-200/95">
-                                  {violationSummaryPlain(v)}
-                                </p>
-                                <p className="mt-3 rounded-lg border border-amber-500/25 bg-amber-950/25 p-2 text-[11px] leading-relaxed text-amber-100/90">
-                                  <span className="font-semibold text-amber-200/95">
-                                    Recommendation:{" "}
-                                  </span>
-                                  {v.recommendation}
-                                </p>
-                              </li>
+                                <ul className="space-y-3">
+                                  {rows.map((v, i) => (
+                                    <li
+                                      key={`${v.ruleId}-${v.serviceId}-${i}`}
+                                      className="rounded-lg border border-rose-500/25 bg-rose-950/35 p-3 text-xs"
+                                    >
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-200">
+                                          {v.severity}
+                                        </span>
+                                        <span className="font-medium text-rose-100">{v.ruleName}</span>
+                                      </div>
+                                      <p className="mt-2 text-[13px] leading-relaxed text-slate-200/95">
+                                        {violationSummaryPlain(v)}
+                                      </p>
+                                      <p className="mt-3 rounded-lg border border-amber-500/25 bg-amber-950/25 p-2 text-[11px] leading-relaxed text-amber-100/90">
+                                        <span className="font-semibold text-amber-200/95">
+                                          Recommendation:{" "}
+                                        </span>
+                                        {v.recommendation}
+                                      </p>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
                             ))}
-                          </ul>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -494,28 +551,40 @@ export default function Home() {
                           <p className="mb-2 text-[10px] font-medium uppercase tracking-wide text-emerald-300/70">
                             {CATEGORY_LABEL[category]}
                           </p>
-                          <ul className="space-y-2">
-                            {items.map((p) => (
-                              <li
-                                key={`${p.ruleId}-${p.serviceId}`}
-                                className="rounded-xl border border-emerald-500/25 bg-emerald-950/25 p-3 text-xs"
+                          <div className="space-y-3">
+                            {groupPassesByService(items).map(({ serviceId, serviceName, rows }) => (
+                              <div
+                                key={`${category}-${serviceId}`}
+                                className="rounded-xl border border-indigo-500/25 bg-indigo-950/20 p-2"
                               >
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-200">
-                                    pass
-                                  </span>
-                                  <span className="font-medium text-emerald-100">{p.ruleName}</span>
-                                </div>
-                                <p className="mt-1 text-slate-300">
-                                  <span className="text-indigo-300">{p.serviceId}</span>
-                                  {p.serviceName ? ` (${p.serviceName})` : ""}
+                                <p className="mb-2 border-b border-indigo-500/20 pb-2 font-[family-name:var(--font-mono)] text-[11px] font-semibold tracking-wide text-indigo-200">
+                                  Service{" "}
+                                  <span className="text-indigo-100">{serviceId}</span>
+                                  {serviceName ? (
+                                    <span className="font-normal text-indigo-300/90"> · {serviceName}</span>
+                                  ) : null}
                                 </p>
-                                <p className="mt-1 text-slate-500">
-                                  All assertions passed for this service.
-                                </p>
-                              </li>
+                                <ul className="space-y-2">
+                                  {rows.map((p) => (
+                                    <li
+                                      key={`${p.ruleId}-${p.serviceId}`}
+                                      className="rounded-lg border border-emerald-500/25 bg-emerald-950/30 p-3 text-xs"
+                                    >
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-200">
+                                          pass
+                                        </span>
+                                        <span className="font-medium text-emerald-100">{p.ruleName}</span>
+                                      </div>
+                                      <p className="mt-1 text-slate-500">
+                                        All assertions passed for this service.
+                                      </p>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
                             ))}
-                          </ul>
+                          </div>
                         </div>
                       ))}
                     </div>
