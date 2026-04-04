@@ -10,21 +10,6 @@ Web app and shared TypeScript engine that evaluates **policies** against a norma
 4. **Run scan** — The rule engine runs in-process; results are deterministic.
 5. **After a successful scan** — The results panel shows **Sent to Service Manager** and a **Download PDF of compliance results** button (browser download via `jspdf`). Violations still show severity; **passed checks** are labeled **pass** only (no severity chip in the UI).
 
-## API
-
-- `POST /api/scan` — Body: `{ "infrastructure": "<JSON string>", "policies": "<bullets or JSON>" }`. Both are required.
-- `POST /api/infrastructure/generate` — `{ "prompt": "..." }` for plain-English inventory generation, or `{ "categories": "...", "requirements": "..." }` plus optional `additionalNotes` for structured spec mode.
-- `POST /api/policies/generate` — `{ "prompt": "..." }` returns validated policy bundle JSON.
-
-## Same engine elsewhere
-
-The CLI (`npm run scan`) and `POST /api/scan` use the same `src/lib/engine` evaluation logic.
-
-## Configuration
-
-- Local: copy `.env.example` to `.env.local` and set `OPENAI_API_KEY` (and optional `OPENAI_MODEL`).
-- Hosted (e.g. Render): set `OPENAI_API_KEY` in the service environment; see `render.yaml`.
-
 ## Stack
 
 TypeScript, Node.js 20+, Next.js (App Router), React, Tailwind CSS, **jspdf** (PDF export). Docker / Compose, and example Kubernetes / Helm manifests are included for deployment patterns.
