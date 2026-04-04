@@ -10,11 +10,52 @@ import {
   type Violation,
 } from "@/lib/engine";
 
-const EMPTY_INFRA_JSON = `{
-  "version": "1",
-  "services": []
+/** Scope JSON: which environments, service types, and rough size the inventory should cover. */
+const DEFAULT_INVENTORY_CATEGORIES = `{
+  "environments": ["production", "staging", "development"],
+  "serviceTypes": ["database", "compute"],
+  "targetServiceCount": 8
+}`;
+
+/** Requirements JSON: outlines / constraints per service or group (not the final inventory). */
+const DEFAULT_INVENTORY_REQUIREMENTS = `{
+  "serviceOutlines": [
+    {
+      "environment": "production",
+      "type": "database",
+      "summary": "Primary OLTP: backups on, encrypted, private, 2+ replicas, larger instance class"
+    },
+    {
+      "environment": "production",
+      "type": "database",
+      "summary": "Audit DB: weaker posture for testing violations — e.g. no backups and public"
+    },
+    {
+      "environment": "staging",
+      "type": "database",
+      "summary": "Analytics-style DB; mix of flags for policy testing"
+    },
+    {
+      "environment": "development",
+      "type": "database",
+      "summary": "Small burstable sandbox databases"
+    },
+    {
+      "environment": "development",
+      "type": "compute",
+      "summary": "Worker with an instance type you may govern under cost rules"
+    }
+  ]
+}`;
+
+function serviceCountFromInventory(json: string): number | null {
+  try {
+    const o = JSON.parse(json) as { services?: unknown[] };
+    return Array.isArray(o.services) ? o.services.length : null;
+  } catch {
+    return null;
+  }
 }
-`;
 
 const CATEGORY_LABEL: Record<PolicyCategory, string> = {
   security: "Security",
@@ -73,8 +114,13 @@ function MoonOrb() {
 
 export default function Home() {
   const [policies, setPolicies] = useState("");
-  const [infrastructureJson, setInfrastructureJson] = useState(EMPTY_INFRA_JSON);
-  const [configAiPrompt, setConfigAiPrompt] = useState("");
+  const [inventoryCategoriesJson, setInventoryCategoriesJson] = useState(DEFAULT_INVENTORY_CATEGORIES);
+  const [inventoryRequirementsJson, setInventoryRequirementsJson] = useState(
+    DEFAULT_INVENTORY_REQUIREMENTS,
+  );
+  const [inventoryNotes, setInventoryNotes] = useState("");
+  /** Built snapshot sent to /api/scan; filled by OpenAI from spec or pasted in Advanced. */
+  const [builtInventoryJson, setBuiltInventoryJson] = useState("");
   const [policyAiPrompt, setPolicyAiPrompt] = useState("");
   const [configAiLoading, setConfigAiLoading] = useState(false);
   const [policyAiLoading, setPolicyAiLoading] = useState(false);
@@ -82,7 +128,7 @@ export default function Home() {
     {
       id: "welcome",
       role: "system",
-      text: "Paste or generate configuration JSON (inventory) and policies separately. Each rule must declare a category: security, cost, or operational — in JSON use the category field; as bullets use a prefix like [security]. OpenAI can draft either side from plain English (server needs OPENAI_API_KEY). The scan itself is deterministic.",
+      text: "Define inventory scope with two JSON blobs: categories (what to include) and requirements (how services should look). OpenAI turns them into the internal inventory snapshot used for scanning — you do not edit raw services[] unless you use Advanced. Policies are separate; each rule needs security, cost, or operational. Server needs OPENAI_API_KEY for building inventory and drafting policies.",
     },
   ]);
   const [loading, setLoading] = useState(false);
@@ -96,18 +142,33 @@ export default function Home() {
     setLines((prev) => [...prev, { ...line, id: `${Date.now()}-${Math.random()}` }]);
   }, []);
 
-  const generateInfrastructureWithAi = useCallback(async () => {
-    if (!configAiPrompt.trim()) return;
+  const buildInventoryFromSpec = useCallback(async () => {
     setConfigAiLoading(true);
     appendLine({
       role: "user",
-      text: "Generate infrastructure JSON from the configuration prompt (OpenAI).",
+      text: "Build inventory snapshot from categories + requirements JSON (OpenAI).",
     });
     try {
+      let categories = inventoryCategoriesJson.trim();
+      let requirements = inventoryRequirementsJson.trim();
+      try {
+        JSON.parse(categories);
+        JSON.parse(requirements);
+      } catch {
+        appendLine({
+          role: "result",
+          text: "Categories and requirements must each be valid JSON. Fix syntax, then try again.",
+        });
+        return;
+      }
       const res = await fetch("/api/infrastructure/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: configAiPrompt.trim() }),
+        body: JSON.stringify({
+          categories,
+          requirements,
+          additionalNotes: inventoryNotes.trim() || undefined,
+        }),
       });
       const data = (await res.json()) as { infrastructure?: string; error?: string };
       if (!res.ok) {
@@ -115,10 +176,14 @@ export default function Home() {
         return;
       }
       if (typeof data.infrastructure === "string") {
-        setInfrastructureJson(data.infrastructure);
+        setBuiltInventoryJson(data.infrastructure);
+        const n = serviceCountFromInventory(data.infrastructure);
         appendLine({
           role: "result",
-          text: "Configuration JSON was generated and loaded into the editor. Review it, add policies, then run scan.",
+          text:
+            n !== null
+              ? `Inventory built: ${n} service(s). Run scan when policies are ready. (View or edit raw JSON under Advanced if needed.)`
+              : "Inventory built. Run scan when policies are ready.",
         });
       }
     } catch (e) {
@@ -129,7 +194,7 @@ export default function Home() {
     } finally {
       setConfigAiLoading(false);
     }
-  }, [appendLine, configAiPrompt]);
+  }, [appendLine, inventoryCategoriesJson, inventoryRequirementsJson, inventoryNotes]);
 
   const generatePoliciesWithAi = useCallback(async () => {
     if (!policyAiPrompt.trim()) return;
@@ -170,7 +235,7 @@ export default function Home() {
     setLoading(true);
     appendLine({
       role: "user",
-      text: "Run scan — configuration + policies from editors.",
+      text: "Run scan — built inventory + policies.",
     });
     try {
       const res = await fetch("/api/scan", {
@@ -178,7 +243,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           policies,
-          infrastructure: infrastructureJson.trim(),
+          infrastructure: builtInventoryJson.trim(),
         }),
       });
       const data = (await res.json()) as ScanResult & {
@@ -220,7 +285,7 @@ export default function Home() {
         violations,
         passes,
         passed: data.passed,
-        meta: `Inventory from configuration editor\n${data.scannedAt}`,
+        meta: `Inventory (built or pasted)\n${data.scannedAt}`,
       });
     } catch (e) {
       appendLine({
@@ -230,10 +295,11 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [appendLine, policies, infrastructureJson]);
+  }, [appendLine, policies, builtInventoryJson]);
 
+  const builtServiceCount = serviceCountFromInventory(builtInventoryJson);
   const canScan =
-    infrastructureJson.trim().length > 0 && policies.trim().length > 0 && !loading;
+    builtInventoryJson.trim().length > 0 && policies.trim().length > 0 && !loading;
 
   return (
     <main className="relative mx-auto flex min-h-screen max-w-6xl flex-col px-4 pb-16 pt-10 md:px-8">
@@ -250,65 +316,107 @@ export default function Home() {
 
       <div className="relative z-10 grid flex-1 gap-6 lg:grid-cols-2">
         <section className="flex max-h-[min(92vh,1400px)] flex-col gap-4 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/40 p-5 shadow-xl backdrop-blur-md">
-          <h2 className="text-sm font-medium text-indigo-200/90">Configuration (inventory JSON)</h2>
+          <h2 className="text-sm font-medium text-indigo-200/90">Inventory specification</h2>
           <p className="text-[11px] leading-relaxed text-slate-500">
-            Object with a <code className="text-slate-400">services</code> array. Each service needs{" "}
-            <code className="text-slate-400">id</code>, <code className="text-slate-400">type</code>,{" "}
-            <code className="text-slate-400">environment</code>, and optional fields such as{" "}
-            <code className="text-slate-400">automatedBackups</code>,{" "}
-            <code className="text-slate-400">encryptionAtRest</code>,{" "}
-            <code className="text-slate-400">publiclyAccessible</code>,{" "}
-            <code className="text-slate-400">replicaCount</code>,{" "}
-            <code className="text-slate-400">instanceType</code>.
+            You edit two JSON documents: <strong className="text-slate-400">categories</strong> (scope —
+            environments, service types, rough counts) and <strong className="text-slate-400">requirements</strong>{" "}
+            (what each service or group should look like). OpenAI expands them into the internal inventory used for
+            scanning. Raw <code className="text-slate-400">services[]</code> stays under{" "}
+            <strong className="text-slate-400">Advanced</strong> unless you paste it there.
           </p>
 
           <details className="rounded-xl border border-cyan-500/25 bg-cyan-950/15 px-3 py-2">
             <summary className="cursor-pointer text-[11px] font-semibold text-cyan-200/90">
-              Ideas for what to model (5–10 services)
+              What to put in categories vs requirements
             </summary>
             <ul className="mt-2 list-inside list-disc space-y-1 text-[11px] leading-relaxed text-slate-400">
-              <li>Production OLTP database: backups on, encryption on, not public, HA replicas.</li>
-              <li>Second prod DB (e.g. audit) with different flags to create violations.</li>
-              <li>Staging analytics DB: different instance class / encryption choices.</li>
-              <li>Development sandbox DB or cache with looser settings.</li>
-              <li>Compute or batch instances in dev/staging with instance types you want to govern.</li>
-              <li>Mix <code className="text-slate-500">production</code>,{" "}
-                <code className="text-slate-500">staging</code>, and{" "}
-                <code className="text-slate-500">development</code> so policies can target environments.
+              <li>
+                <strong className="text-slate-500">Categories JSON:</strong> arrays like{" "}
+                <code className="text-slate-500">environments</code>, <code className="text-slate-500">serviceTypes</code>
+                , optional <code className="text-slate-500">targetServiceCount</code>, regions, teams.
+              </li>
+              <li>
+                <strong className="text-slate-500">Requirements JSON:</strong> e.g.{" "}
+                <code className="text-slate-500">serviceOutlines</code> with{" "}
+                <code className="text-slate-500">environment</code>, <code className="text-slate-500">type</code>, and a{" "}
+                <code className="text-slate-500">summary</code> of posture (backups, encryption, public access, replicas,
+                instance class). Add or remove outlines to match 5–10 services you care about.
               </li>
             </ul>
           </details>
 
-          <div className="rounded-xl border border-sky-500/20 bg-sky-950/15 p-3">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-sky-200/80">
-              Draft configuration with OpenAI
-            </p>
+          <div>
+            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              Categories (JSON)
+            </label>
             <textarea
-              className="mb-2 min-h-[72px] w-full resize-y rounded-lg border border-white/10 bg-black/30 p-2 text-xs text-slate-200 outline-none focus:border-sky-400/40 focus:ring-1 focus:ring-sky-500/30"
+              className="min-h-[120px] w-full resize-y rounded-xl border border-white/10 bg-black/30 p-3 font-[family-name:var(--font-mono)] text-[11px] leading-relaxed text-slate-200 outline-none ring-indigo-500/30 focus:border-indigo-400/50 focus:ring-2"
               spellCheck={false}
-              value={configAiPrompt}
-              onChange={(e) => setConfigAiPrompt(e.target.value)}
-              placeholder="e.g. 2 prod RDS databases (one with backups off and public), 1 staging DB with encryption off, 2 dev DBs on small burstable classes, 1 dev EC2 worker…"
-              aria-label="Prompt for AI infrastructure generation"
+              value={inventoryCategoriesJson}
+              onChange={(e) => setInventoryCategoriesJson(e.target.value)}
+              aria-label="Inventory categories JSON"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              Requirements (JSON)
+            </label>
+            <textarea
+              className="min-h-[180px] w-full resize-y rounded-xl border border-white/10 bg-black/30 p-3 font-[family-name:var(--font-mono)] text-[11px] leading-relaxed text-slate-200 outline-none ring-indigo-500/30 focus:border-indigo-400/50 focus:ring-2"
+              spellCheck={false}
+              value={inventoryRequirementsJson}
+              onChange={(e) => setInventoryRequirementsJson(e.target.value)}
+              aria-label="Inventory requirements JSON"
+            />
+          </div>
+
+          <div className="rounded-xl border border-slate-500/20 bg-slate-900/40 p-3">
+            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              Optional notes for the model
+            </label>
+            <textarea
+              className="mb-2 min-h-[56px] w-full resize-y rounded-lg border border-white/10 bg-black/30 p-2 text-xs text-slate-200 outline-none focus:border-slate-400/40 focus:ring-1 focus:ring-slate-500/30"
+              spellCheck={false}
+              value={inventoryNotes}
+              onChange={(e) => setInventoryNotes(e.target.value)}
+              placeholder="Plain English only if needed (e.g. naming theme, cloud provider flavor). Categories and requirements stay JSON above."
+              aria-label="Optional notes for inventory generation"
             />
             <button
               type="button"
-              onClick={() => void generateInfrastructureWithAi()}
-              disabled={configAiLoading || !configAiPrompt.trim()}
+              onClick={() => void buildInventoryFromSpec()}
+              disabled={configAiLoading}
               className="rounded-lg bg-sky-600/80 px-3 py-2 text-xs font-semibold text-white transition hover:bg-sky-500 disabled:opacity-40"
             >
-              {configAiLoading ? "Calling OpenAI…" : "Generate configuration JSON"}
+              {configAiLoading ? "Calling OpenAI…" : "Build inventory from spec"}
             </button>
+            <p className="mt-2 text-[11px] text-slate-500">
+              {builtInventoryJson.trim()
+                ? builtServiceCount !== null
+                  ? `Ready to scan: ${builtServiceCount} service(s) in built inventory.`
+                  : "Built inventory present. Run scan when policies are set."
+                : "Build inventory before running a scan (or paste JSON under Advanced)."}
+            </p>
           </div>
 
-          <textarea
-            className="min-h-[200px] flex-1 resize-y rounded-xl border border-white/10 bg-black/30 p-3 font-[family-name:var(--font-mono)] text-[11px] leading-relaxed text-slate-200 outline-none ring-indigo-500/30 focus:border-indigo-400/50 focus:ring-2"
-            spellCheck={false}
-            value={infrastructureJson}
-            onChange={(e) => setInfrastructureJson(e.target.value)}
-            aria-label="Infrastructure snapshot JSON"
-            placeholder='{ "version": "1", "services": [ ... ] }'
-          />
+          <details className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+            <summary className="cursor-pointer text-[11px] font-medium text-slate-400">
+              Advanced — paste or edit full inventory JSON
+            </summary>
+            <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
+              Direct <code className="text-slate-500">services[]</code> snapshot. Overrides what you see above for
+              scanning only; categories/requirements are not auto-synced.
+            </p>
+            <textarea
+              className="mt-2 min-h-[160px] w-full resize-y rounded-lg border border-white/10 bg-black/40 p-2 font-[family-name:var(--font-mono)] text-[10px] leading-relaxed text-slate-300 outline-none focus:border-indigo-400/40 focus:ring-1"
+              spellCheck={false}
+              value={builtInventoryJson}
+              onChange={(e) => setBuiltInventoryJson(e.target.value)}
+              aria-label="Full infrastructure snapshot JSON"
+              placeholder='{ "version": "1", "services": [ ... ] }'
+            />
+          </details>
 
           <h2 className="text-sm font-medium text-indigo-200/90">Policies</h2>
           <p className="text-[11px] text-slate-500">

@@ -21,6 +21,85 @@ Optional fields (use when relevant to the user's description):
 
 Typical inventories have roughly 5–12 services. Invent plausible ids and attributes that match the user's scenario; do not invent real AWS account data.`;
 
+const SPEC_USER_INSTRUCTIONS = `You receive two JSON inputs from the user:
+
+1) categories — scope of the inventory: environments, service types, approximate counts, regions, teams, etc.
+2) requirements — what they want each service or group to look like (natural-language summaries and/or structured hints). This is NOT the final inventory.
+
+Expand both into a single valid infrastructure snapshot: version "1", services[] with concrete id, type, environment, and scanner fields (automatedBackups, encryptionAtRest, publiclyAccessible, replicaCount, instanceType, name, tags) as appropriate.
+
+Respect the categories scope. Implement every outline in requirements as one or more distinct services unless the user clearly merges them.`;
+
+export async function generateInfrastructureFromSpecWithOpenAI(args: {
+  categoriesJson: string;
+  requirementsJson: string;
+  additionalNotes?: string;
+}): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error(
+      "OPENAI_API_KEY is not set. Add it to your environment (e.g. Render dashboard) — never commit API keys to git.",
+    );
+  }
+
+  const model = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
+
+  const userContent = `CATEGORIES (JSON — scope of what to model):
+${args.categoriesJson.trim()}
+
+REQUIREMENTS (JSON — desired services / posture; not the final inventory):
+${args.requirementsJson.trim()}
+${args.additionalNotes?.trim() ? `\nADDITIONAL NOTES:\n${args.additionalNotes.trim()}\n` : ""}`;
+
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.2,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: `${SYSTEM_PROMPT}\n\n${SPEC_USER_INSTRUCTIONS}` },
+        {
+          role: "user",
+          content: userContent,
+        },
+      ],
+    }),
+  });
+
+  const raw = await res.text();
+  if (!res.ok) {
+    throw new Error(`OpenAI API error (${res.status}): ${raw.slice(0, 400)}`);
+  }
+
+  let data: {
+    choices?: Array<{ message?: { content?: string | null } }>;
+  };
+  try {
+    data = JSON.parse(raw) as typeof data;
+  } catch {
+    throw new Error("Invalid JSON from OpenAI transport");
+  }
+
+  const content = data.choices?.[0]?.message?.content;
+  if (!content || typeof content !== "string") {
+    throw new Error("OpenAI returned no message content");
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    throw new Error("Model output was not valid JSON");
+  }
+
+  return JSON.stringify(parsed, null, 2);
+}
+
 export async function generateInfrastructureJsonWithOpenAI(userPrompt: string): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
