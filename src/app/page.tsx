@@ -90,7 +90,7 @@ export default function Home() {
     {
       id: "welcome",
       role: "system",
-      text: "Describe your services in plain English below; OpenAI turns that into inventory JSON for scanning (set OPENAI_API_KEY on the server). You can paste full inventory JSON under Advanced if you prefer. Policies are separate — each rule needs security, cost, or operational. After a scan, results are labeled for Service Manager and you can download a PDF report.",
+      text: "Disclaimer: this assistant uses AI. Inventory and policy drafts can be wrong, incomplete, or different each time you run them. Scan results only reflect the JSON you provide and this app’s rules—they are not legal, regulatory, or audit-grade findings. Always verify against your real systems. See the notice at the top of the page.",
     },
   ]);
   const [loading, setLoading] = useState(false);
@@ -268,6 +268,24 @@ export default function Home() {
         <h1 className="mt-2 bg-gradient-to-r from-slate-100 via-indigo-100 to-slate-300 bg-clip-text text-3xl font-semibold text-transparent md:text-4xl">
           Compliance Scanner
         </h1>
+        <aside
+          className="mx-auto mt-6 max-w-2xl rounded-2xl border border-amber-500/30 bg-amber-950/25 px-4 py-3 text-left shadow-lg shadow-amber-900/10"
+          role="note"
+          aria-label="AI disclaimer"
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-200/90">Disclaimer</p>
+          <p className="mt-2 text-[11px] leading-relaxed text-amber-100/85">
+            This product uses <strong className="font-medium text-amber-50/95">artificial intelligence</strong> to turn
+            your descriptions into inventory and policy text. AI output can be inaccurate, incomplete, or{" "}
+            <strong className="font-medium text-amber-50/95">different on each run</strong>—do not treat it as a source
+            of truth for your real cloud or on-prem estate.
+          </p>
+          <p className="mt-2 text-[11px] leading-relaxed text-amber-100/85">
+            Compliance results here are based only on the snapshot and rules in this app; they are{" "}
+            <strong className="font-medium text-amber-50/95">not</strong> legal, regulatory, or formal audit
+            conclusions. Review all outputs carefully before acting on them.
+          </p>
+        </aside>
       </header>
 
       <div className="relative z-10 grid flex-1 gap-6 lg:grid-cols-2">
