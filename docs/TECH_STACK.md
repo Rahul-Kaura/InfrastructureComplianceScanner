@@ -58,6 +58,8 @@ For **audit clarity**: treat **OpenAI** as a **drafting assistant**; treat the *
 
 ### Infrastructure data: sources, access, and privacy
 
+**How it is accessed here (internal data):** the owner supplies configuration only—over **TLS** into your Next.js **`POST /api/scan`** body (or from **local files** via the CLI)—the server processes it **in memory** for that request (**no** app-side database persistence, **no** AWS/GCP/Azure inventory APIs in v1); using **OpenAI** to draft text sends that content to a **third party**, so skip or redact for the strictest internal-data posture.
+
 **How service configuration is obtained in this project:**
 
 | Source | How it’s used | Notes |
