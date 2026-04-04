@@ -61,9 +61,6 @@ export function UniphoreSsoLogin({ onAuthenticated }: UniphoreSsoLoginProps) {
         <h1 className="mt-2 bg-gradient-to-r from-slate-100 via-indigo-100 to-slate-300 bg-clip-text text-3xl font-semibold text-transparent md:text-4xl">
           SSO sign-in
         </h1>
-        <p className="mx-auto mt-3 max-w-md text-[11px] leading-relaxed text-slate-500">
-          Simulated enterprise SSO for demo only. No real identity checks—password is not verified.
-        </p>
       </header>
 
       <div className="relative z-10 rounded-2xl border border-white/10 bg-slate-950/50 p-6 shadow-xl backdrop-blur-md">
