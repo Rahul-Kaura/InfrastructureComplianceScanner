@@ -3,6 +3,9 @@ export type ServiceType = "database" | "compute" | "cache" | "storage" | string;
 
 export type Environment = "production" | "staging" | "development" | string;
 
+/** Grouping for policies and scan results: security posture, cost controls, operational resilience. */
+export type PolicyCategory = "security" | "cost" | "operational";
+
 export interface ServiceConfig {
   id: string;
   name?: string;
@@ -56,6 +59,10 @@ export interface ComplianceRule {
   name: string;
   description: string;
   severity: "critical" | "high" | "medium" | "low";
+  /** If omitted, inferred from rule id/name when parsing JSON */
+  category?: PolicyCategory;
+  /** Optional remediation steps; violations fall back to field-based defaults */
+  remediation?: string;
   /** If omitted, rule applies to every service */
   appliesTo?: RuleSelector;
   /** All must pass */
@@ -71,12 +78,14 @@ export interface Violation {
   ruleId: string;
   ruleName: string;
   severity: ComplianceRule["severity"];
+  category: PolicyCategory;
   serviceId: string;
   serviceName?: string;
   reason: string;
   field?: string;
   actual?: unknown;
   expected?: string;
+  recommendation: string;
 }
 
 /** Rule applied to this service and every assertion succeeded. */
@@ -84,6 +93,7 @@ export interface PassedCheck {
   ruleId: string;
   ruleName: string;
   severity: ComplianceRule["severity"];
+  category: PolicyCategory;
   serviceId: string;
   serviceName?: string;
 }

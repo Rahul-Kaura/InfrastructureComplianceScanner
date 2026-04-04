@@ -6,6 +6,8 @@
       "name": "Production DB backups",
       "description": "All production databases must have automated backups enabled.",
       "severity": "critical",
+      "category": "operational",
+      "remediation": "Enable automated backups and retention for this production database in your cloud console or IaC, then refresh the snapshot and re-scan.",
       "appliesTo": { "type": "database", "environment": "production" },
       "assert": [
         {
@@ -21,6 +23,8 @@
       "name": "Encryption at rest",
       "description": "All databases must use encryption at rest.",
       "severity": "high",
+      "category": "security",
+      "remediation": "Enable encryption at rest or migrate to an encrypted instance; update Terraform/CloudFormation or console, re-import inventory, and re-scan.",
       "appliesTo": { "type": "database" },
       "assert": [
         {
@@ -36,6 +40,8 @@
       "name": "No public production DBs",
       "description": "Production databases cannot be publicly accessible.",
       "severity": "critical",
+      "category": "security",
+      "remediation": "Disable public accessibility; use private subnets and restrict security groups to trusted sources only, then re-scan.",
       "appliesTo": { "type": "database", "environment": "production" },
       "assert": [
         {
@@ -51,6 +57,8 @@
       "name": "Production HA replicas",
       "description": "Production databases must have at least 2 replicas for HA.",
       "severity": "high",
+      "category": "operational",
+      "remediation": "Add read replicas or cluster capacity so replicaCount is at least 2; roll out via change management and re-scan.",
       "appliesTo": { "type": "database", "environment": "production" },
       "assert": [
         {
@@ -66,6 +74,8 @@
       "name": "Dev/staging cost-optimized DB classes",
       "description": "Non-production databases should use burstable or smaller instance families.",
       "severity": "medium",
+      "category": "cost",
+      "remediation": "Change instance class to an allowed burstable/smaller family (e.g. db.t3/db.t4g) in dev/staging, update IaC, refresh inventory, and re-scan.",
       "appliesTo": {
         "type": "database",
         "environment": ["development", "staging"]

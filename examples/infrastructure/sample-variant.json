@@ -1,0 +1,74 @@
+{
+  "version": "1",
+  "generatedAt": "2026-04-04T12:00:00Z",
+  "services": [
+    {
+      "id": "rds-prod-catalog",
+      "name": "catalog-primary",
+      "owner": "platform",
+      "type": "database",
+      "environment": "production",
+      "automatedBackups": true,
+      "encryptionAtRest": true,
+      "publiclyAccessible": false,
+      "replicaCount": 3,
+      "instanceType": "db.r6g.large",
+      "tags": { "team": "catalog", "cost-center": "cc-01" }
+    },
+    {
+      "id": "rds-prod-legacy",
+      "type": "database",
+      "environment": "production",
+      "automatedBackups": true,
+      "encryptionAtRest": false,
+      "publiclyAccessible": false,
+      "replicaCount": 2,
+      "instanceType": "db.m5.large"
+    },
+    {
+      "id": "rds-staging-mart",
+      "type": "database",
+      "environment": "staging",
+      "automatedBackups": true,
+      "encryptionAtRest": true,
+      "publiclyAccessible": false,
+      "replicaCount": 1,
+      "instanceType": "db.t4g.medium"
+    },
+    {
+      "id": "rds-staging-reports",
+      "name": "reports-warehouse",
+      "type": "database",
+      "environment": "staging",
+      "automatedBackups": true,
+      "encryptionAtRest": true,
+      "publiclyAccessible": false,
+      "replicaCount": 1,
+      "instanceType": "db.r5.2xlarge"
+    },
+    {
+      "id": "rds-dev-lab",
+      "type": "database",
+      "environment": "development",
+      "automatedBackups": false,
+      "encryptionAtRest": true,
+      "publiclyAccessible": false,
+      "replicaCount": 0,
+      "instanceType": "db.t3.micro"
+    },
+    {
+      "id": "ec2-staging-worker",
+      "type": "compute",
+      "environment": "staging",
+      "instanceType": "m6i.large",
+      "publiclyAccessible": false
+    },
+    {
+      "id": "ec2-dev-tools",
+      "type": "compute",
+      "environment": "development",
+      "instanceType": "t3.nano",
+      "publiclyAccessible": true
+    }
+  ]
+}

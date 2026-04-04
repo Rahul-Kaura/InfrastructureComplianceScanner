@@ -1,4 +1,4 @@
-import type { ComplianceRule, PolicyBundle } from "./types";
+import type { ComplianceRule, PolicyBundle, PolicyCategory } from "./types";
 import { parsePolicyJson } from "./evaluate";
 
 function normalizeBulletLine(raw: string): string | null {
@@ -102,6 +102,9 @@ function ruleFromLine(line: string, index: number): ComplianceRule | null {
       name: line.length > 90 ? `${line.slice(0, 87)}…` : line,
       description: line,
       severity: "critical",
+      category: "operational" satisfies PolicyCategory,
+      remediation:
+        "Enable automated backups and an appropriate retention window for this production database in your provider or IaC, then refresh the snapshot and re-scan.",
       appliesTo: { type: "database", environment: "production" },
       assert: [
         {
@@ -120,6 +123,9 @@ function ruleFromLine(line: string, index: number): ComplianceRule | null {
       name: line.length > 90 ? `${line.slice(0, 87)}…` : line,
       description: line,
       severity: "high",
+      category: "security" satisfies PolicyCategory,
+      remediation:
+        "Turn on encryption at rest (or migrate to an encrypted instance), update IaC or console, then re-import inventory and re-scan.",
       appliesTo: { type: "database" },
       assert: [
         {
@@ -138,6 +144,9 @@ function ruleFromLine(line: string, index: number): ComplianceRule | null {
       name: line.length > 90 ? `${line.slice(0, 87)}…` : line,
       description: line,
       severity: "critical",
+      category: "security" satisfies PolicyCategory,
+      remediation:
+        "Disable public accessibility, use private connectivity and least-privilege network rules, then update the snapshot and re-scan.",
       appliesTo: { type: "database", environment: "production" },
       assert: [
         {
@@ -157,6 +166,11 @@ function ruleFromLine(line: string, index: number): ComplianceRule | null {
       name: line.length > 90 ? `${line.slice(0, 87)}…` : line,
       description: line,
       severity: prodReplicaMin >= 2 ? "high" : "low",
+      category: "operational" satisfies PolicyCategory,
+      remediation:
+        prodReplicaMin >= 2
+          ? "Add or enable enough read replicas / cluster nodes so replicaCount meets HA policy, then re-scan."
+          : "If this minimum is for reporting only, confirm replicaCount in inventory; otherwise adjust replicas to satisfy the stated minimum and re-scan.",
       appliesTo: { type: "database", environment: "production" },
       assert: [
         {
@@ -175,6 +189,9 @@ function ruleFromLine(line: string, index: number): ComplianceRule | null {
       name: line.length > 90 ? `${line.slice(0, 87)}…` : line,
       description: line,
       severity: "medium",
+      category: "cost" satisfies PolicyCategory,
+      remediation:
+        "Resize or change instance class to a burstable/smaller family allowed by your cost policy (e.g. t3/t4g classes), update IaC, refresh inventory, and re-scan.",
       appliesTo: { environment: ["development", "staging"] },
       assert: [
         {

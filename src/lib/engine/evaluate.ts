@@ -9,6 +9,7 @@ import type {
   ServiceConfig,
   Violation,
 } from "./types";
+import { resolvePolicyCategory, resolveRecommendation } from "./ruleMetadata";
 
 const COST_OPTIMIZED_PREFIXES = ["t3", "t4g", "t3a", "m6g", "r6g", "db.t3", "db.t4g"];
 
@@ -115,6 +116,7 @@ function evalAssertion(service: ServiceConfig, a: Assertion): { ok: boolean; det
 export function evaluateRule(service: ServiceConfig, rule: ComplianceRule): Violation[] {
   if (!matchesSelector(service, rule.appliesTo)) return [];
 
+  const category = resolvePolicyCategory(rule);
   const out: Violation[] = [];
   for (const assertion of rule.assert) {
     const r = evalAssertion(service, assertion);
@@ -123,12 +125,14 @@ export function evaluateRule(service: ServiceConfig, rule: ComplianceRule): Viol
         ruleId: rule.id,
         ruleName: rule.name,
         severity: rule.severity,
+        category,
         serviceId: service.id,
         serviceName: service.name,
         reason: r.detail ?? "assertion failed",
         field: assertion.field,
         actual: getByPath(service as Record<string, unknown>, assertion.field),
         expected: assertion.expect ?? JSON.stringify(assertion.value),
+        recommendation: resolveRecommendation(rule, assertion.field),
       });
     }
   }
@@ -154,6 +158,7 @@ export function scan(
           ruleId: rule.id,
           ruleName: rule.name,
           severity: rule.severity,
+          category: resolvePolicyCategory(rule),
           serviceId: service.id,
           serviceName: service.name,
         });
@@ -198,6 +203,19 @@ export function parsePolicyJson(text: string): PolicyBundle {
     if (typeof rule.id !== "string") throw new Error('Rule needs string "id"');
     if (typeof rule.name !== "string") throw new Error(`Rule ${rule.id} needs "name"`);
     if (!Array.isArray(rule.assert)) throw new Error(`Rule ${rule.id} needs "assert" array`);
+    if (
+      rule.category !== undefined &&
+      rule.category !== "security" &&
+      rule.category !== "cost" &&
+      rule.category !== "operational"
+    ) {
+      throw new Error(
+        `Rule ${rule.id}: category must be "security", "cost", or "operational" if set`,
+      );
+    }
+    if (rule.remediation !== undefined && typeof rule.remediation !== "string") {
+      throw new Error(`Rule ${rule.id}: remediation must be a string if set`);
+    }
   }
   return o as unknown as PolicyBundle;
 }

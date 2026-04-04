@@ -87,6 +87,7 @@ const CLEAN_PRESETS: ScanPreset[] = [
       "name": "Database replica count is non-negative",
       "description": "Replica count must be zero or more.",
       "severity": "low",
+      "category": "operational",
       "appliesTo": { "type": "database" },
       "assert": [
         {
@@ -113,6 +114,7 @@ const CLEAN_PRESETS: ScanPreset[] = [
       "name": "Development compute must not be public",
       "description": "Dev compute instances stay off the public internet.",
       "severity": "medium",
+      "category": "security",
       "appliesTo": { "type": "compute", "environment": "development" },
       "assert": [
         {
@@ -139,6 +141,7 @@ const CLEAN_PRESETS: ScanPreset[] = [
       "name": "Lambda runtime present",
       "description": "Serverless functions must declare a supported runtime (inventory has no lambdas).",
       "severity": "low",
+      "category": "operational",
       "appliesTo": { "type": "lambda" },
       "assert": [
         {
