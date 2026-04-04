@@ -111,11 +111,6 @@ export function UniphoreSsoLogin({ onAuthenticated }: UniphoreSsoLoginProps) {
           </button>
         </form>
       </div>
-
-      <p className="relative z-10 mt-8 text-center text-[10px] leading-relaxed text-slate-600">
-        Demo gate: only <code className="text-slate-500">@uniphore.com</code> addresses are accepted. Password must be
-        non-empty; it is not checked against any directory.
-      </p>
     </main>
   );
 }
