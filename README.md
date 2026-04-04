@@ -16,6 +16,8 @@ TypeScript, Node.js 20+, Next.js (App Router), React, Tailwind CSS, **jspdf** (P
 
 For a file-by-file map (OpenAI, Docker, K8s, future ideas), see **[docs/TECH_STACK.md](docs/TECH_STACK.md)**.
 
+For stakeholders: solution intent, Git for policies, data/privacy, and how AI vs rule engine fit, see **[docs/SOLUTION_OVERVIEW.md](docs/SOLUTION_OVERVIEW.md)**.
+
 ## Screenshots
 
 Uniphore SSO sign-in (demo gate before the app):
