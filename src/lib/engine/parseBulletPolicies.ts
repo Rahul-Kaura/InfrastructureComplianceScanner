@@ -11,6 +11,16 @@ function normalizeBulletLine(raw: string): string | null {
   return s;
 }
 
+/** Each bullet line must start with [security], [cost], or [operational] (user-declared category). */
+function parseDeclaredCategoryPrefix(line: string): { rest: string; category: PolicyCategory } | null {
+  const m = line.match(/^\[(security|cost|operational)\]\s*(.*)$/i);
+  if (!m) return null;
+  const cat = m[1].toLowerCase() as PolicyCategory;
+  const rest = m[2].trim();
+  if (!rest) return null;
+  return { rest, category: cat };
+}
+
 function mentionsProduction(line: string): boolean {
   return /\bproduction\b/i.test(line) || /\bprod\.?\b/i.test(line);
 }
@@ -218,13 +228,21 @@ export function parseBulletPolicies(input: string): PolicyBundle {
     physicalLine += 1;
     const line = normalizeBulletLine(raw);
     if (line === null) continue;
-    const rule = ruleFromLine(line, rules.length + 1);
-    if (rule) {
-      rules.push(rule);
-    } else {
-      const preview = line.length > 100 ? `${line.slice(0, 97)}…` : line;
+    const tagged = parseDeclaredCategoryPrefix(line);
+    if (!tagged) {
       errors.push(
-        `Line ${physicalLine}: could not interpret "${preview}". Try phrases like production databases, encryption at rest, production replica >= 2 (or >= 0), public access, or dev/staging cost-optimized instances.`,
+        `Line ${physicalLine}: start with [security], [cost], or [operational], then the rule. Example: [security] Production databases cannot be publicly accessible.`,
+      );
+      continue;
+    }
+    const { rest, category: declaredCategory } = tagged;
+    const rule = ruleFromLine(rest, rules.length + 1);
+    if (rule) {
+      rules.push({ ...rule, category: declaredCategory });
+    } else {
+      const preview = rest.length > 100 ? `${rest.slice(0, 97)}…` : rest;
+      errors.push(
+        `Line ${physicalLine}: could not interpret "${preview}" after the category tag. Try production databases + backups, encryption at rest, production replica >= 2, no public access, or dev/staging cost-optimized instances.`,
       );
     }
   }
@@ -234,7 +252,7 @@ export function parseBulletPolicies(input: string): PolicyBundle {
   }
   if (rules.length === 0) {
     throw new Error(
-      'No policy lines found. Enter one requirement per line (optional "-" bullets), or paste JSON starting with "{".',
+      'No policy lines found. Use one line per rule with a [security], [cost], or [operational] prefix, or paste JSON starting with "{".',
     );
   }
 

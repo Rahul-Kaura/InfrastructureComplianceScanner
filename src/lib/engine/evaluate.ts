@@ -204,13 +204,12 @@ export function parsePolicyJson(text: string): PolicyBundle {
     if (typeof rule.name !== "string") throw new Error(`Rule ${rule.id} needs "name"`);
     if (!Array.isArray(rule.assert)) throw new Error(`Rule ${rule.id} needs "assert" array`);
     if (
-      rule.category !== undefined &&
       rule.category !== "security" &&
       rule.category !== "cost" &&
       rule.category !== "operational"
     ) {
       throw new Error(
-        `Rule ${rule.id}: category must be "security", "cost", or "operational" if set`,
+        `Rule ${rule.id}: category is required and must be "security", "cost", or "operational"`,
       );
     }
     if (rule.remediation !== undefined && typeof rule.remediation !== "string") {

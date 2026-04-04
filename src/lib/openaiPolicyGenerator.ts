@@ -14,7 +14,7 @@ Schema:
       "name": "Short title",
       "description": "What this rule checks",
       "severity": "critical" | "high" | "medium" | "low",
-      "category": "security" | "cost" | "operational",
+      "category": "security" | "cost" | "operational" (REQUIRED on every rule),
       "remediation": "1-3 sentences: what the operator should change in cloud console or IaC, then re-scan.",
       "appliesTo": {
         "type": "database" | "compute" | optional string,
@@ -33,6 +33,7 @@ Schema:
 }
 
 Rules:
+- Every rule MUST set "category": pick security (access, encryption, exposure), cost (spend, instance class, waste), or operational (backups, HA, replicas, runbooks).
 - Service objects in inventory have: id, type, environment, automatedBackups, encryptionAtRest, publiclyAccessible, replicaCount, instanceType (optional), name, tags.
 - For "dev/staging must use cheaper instance types" use op "matches", value "costOptimizedInstance", field "instanceType", appliesTo environment ["development","staging"] and type "database" if DB-only.
 - Use "eq" with boolean true/false for backups, encryption, public access.

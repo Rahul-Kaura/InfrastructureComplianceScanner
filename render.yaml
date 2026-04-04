@@ -2,7 +2,7 @@
 # Dashboard: New → Blueprint → connect this repo → Render picks up render.yaml
 #
 # Use a Web Service (this file), not a Static Site — Next.js API routes (/api/scan) need a Node server.
-# Bundled inventories: examples/infrastructure/sample.json and sample-variant.json (switch via snapshotId in API).
+# Example inventories live under examples/infrastructure/ (optional reference; scan API requires pasted JSON).
 # Keep examples/infrastructure/ in the deployed repo (Docker copies that directory).
 
 services:
